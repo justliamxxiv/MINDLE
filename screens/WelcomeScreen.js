@@ -2,12 +2,14 @@ import React, { useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, Image, Dimensions } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import Swiper from 'react-native-swiper';
+import { useUser } from '../context/UserContext';
 
 const { width } = Dimensions.get('window');
 
 export default function WelcomeScreen({ navigation }) {
   const swiperRef = useRef(null);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const { markOnboardingSeen } = useUser();
 
   const slides = [
     {
@@ -32,13 +34,13 @@ export default function WelcomeScreen({ navigation }) {
     },
   ];
 
-  const handleGetStarted = () => {
+  const goToAuth = async () => {
+    await markOnboardingSeen();
     navigation.replace('AuthOptions');
   };
 
-  const handleSkip = () => {
-    navigation.replace('AuthOptions');
-  };
+  const handleGetStarted = goToAuth;
+  const handleSkip = goToAuth;
 
   const handleNext = () => {
     if (currentIndex < slides.length - 1) {

@@ -1,43 +1,61 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { doc, getDoc } from 'firebase/firestore';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { auth, db } from '../config/firebaseConfig';
 
 const UserContext = createContext();
 
 export const UserProvider = ({ children }) => {
   const [userData, setUserData] = useState(null);
+  const [firebaseUser, setFirebaseUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [onboardingSeen, setOnboardingSeen] = useState(false);
 
   useEffect(() => {
+    let authResolved = false;
+    let onboardingResolved = false;
+
+    const tryFinish = () => {
+      if (authResolved && onboardingResolved) setLoading(false);
+    };
+
+    AsyncStorage.getItem('onboarding_seen').then((value) => {
+      setOnboardingSeen(value === 'true');
+      onboardingResolved = true;
+      tryFinish();
+    });
+
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
+      setFirebaseUser(user);
       if (user) {
-        // User is logged in, fetch their data
         try {
           const userDoc = await getDoc(doc(db, 'users', user.uid));
-          if (userDoc.exists()) {
-            setUserData(userDoc.data());
-          }
+          setUserData(userDoc.exists() ? userDoc.data() : null);
         } catch (error) {
           console.error('Error fetching user data:', error);
+          setUserData(null);
         }
       } else {
-        // User is logged out
         setUserData(null);
       }
-      setLoading(false);
+      authResolved = true;
+      tryFinish();
     });
 
     return unsubscribe;
   }, []);
+
+  const markOnboardingSeen = async () => {
+    await AsyncStorage.setItem('onboarding_seen', 'true');
+    setOnboardingSeen(true);
+  };
 
   const refreshUserData = async () => {
     const user = auth.currentUser;
     if (user) {
       try {
         const userDoc = await getDoc(doc(db, 'users', user.uid));
-        if (userDoc.exists()) {
-          setUserData(userDoc.data());
-        }
+        if (userDoc.exists()) setUserData(userDoc.data());
       } catch (error) {
         console.error('Error refreshing user data:', error);
       }
@@ -45,7 +63,7 @@ export const UserProvider = ({ children }) => {
   };
 
   return (
-    <UserContext.Provider value={{ userData, loading, refreshUserData }}>
+    <UserContext.Provider value={{ userData, firebaseUser, loading, onboardingSeen, markOnboardingSeen, refreshUserData }}>
       {children}
     </UserContext.Provider>
   );
