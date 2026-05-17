@@ -1,6 +1,7 @@
-import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import { initializeAuth, getAuth, getReactNativePersistence } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const firebaseConfig = {
   apiKey: "AIzaSyBU4U2cglH37nxFO8f3L_mJ65s-0N1txBI",
@@ -11,13 +12,19 @@ const firebaseConfig = {
   appId: "1:661031411683:web:b4110f8aa1a08c1d6a0ad6"
 };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
+const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
-// Initialize Firebase Authentication
-export const auth = getAuth(app);
+// initializeAuth can only be called once; on hot reload getAuth returns the existing instance
+let auth;
+try {
+  auth = initializeAuth(app, {
+    persistence: getReactNativePersistence(AsyncStorage),
+  });
+} catch {
+  auth = getAuth(app);
+}
 
-// Initialize Firestore (we'll use this later for storing user data)
+export { auth };
 export const db = getFirestore(app);
 
 export default app;

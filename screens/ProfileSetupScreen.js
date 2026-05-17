@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Platform, ActionSheetIOS } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { Picker } from '@react-native-picker/picker';
+import { Ionicons } from '@expo/vector-icons';
 import { doc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebaseConfig';
 
@@ -25,6 +25,7 @@ const NIGERIAN_UNIVERSITIES = [
 
 export default function ProfileSetupScreen({ navigation, route }) {
   const userName = route?.params?.userName || '';
+  const userEmail = route?.params?.userEmail || '';
   
   const [university, setUniversity] = useState('');
   const [department, setDepartment] = useState('');
@@ -81,8 +82,8 @@ export default function ProfileSetupScreen({ navigation, route }) {
       // Prepare profile data
       const profileData = {
         uid: user.uid,
-        email: user.email,
-        name: userName,
+        email: userEmail || user.email,
+        name: userName || user.displayName || '',
         university: university,
         department: department.trim(),
         yearOfStudy: yearOfStudy,
@@ -184,18 +185,13 @@ export default function ProfileSetupScreen({ navigation, route }) {
         {/* University Picker */}
         <View className="mb-4">
           <Text className="text-textPrimary mb-2 font-medium">University/Campus</Text>
-          <View className="bg-cardLight rounded-xl overflow-hidden">
-            <Picker
-              selectedValue={university}
-              onValueChange={(itemValue) => setUniversity(itemValue)}
-              enabled={!loading}
-            >
-              <Picker.Item label="Select your university" value="" />
-              {NIGERIAN_UNIVERSITIES.map((uni) => (
-                <Picker.Item key={uni} label={uni} value={uni} />
-              ))}
-            </Picker>
-          </View>
+          <SelectField
+            value={university}
+            placeholder="Select your university"
+            options={NIGERIAN_UNIVERSITIES.map((u) => ({ label: u, value: u }))}
+            onChange={setUniversity}
+            disabled={loading}
+          />
         </View>
 
         {/* Department Input */}
@@ -213,21 +209,20 @@ export default function ProfileSetupScreen({ navigation, route }) {
         {/* Year of Study Picker */}
         <View className="mb-4">
           <Text className="text-textPrimary mb-2 font-medium">Year of Study</Text>
-          <View className="bg-cardLight rounded-xl overflow-hidden">
-            <Picker
-              selectedValue={yearOfStudy}
-              onValueChange={(itemValue) => setYearOfStudy(itemValue)}
-              enabled={!loading}
-            >
-              <Picker.Item label="Select year" value="" />
-              <Picker.Item label="100 Level (Freshman)" value="100" />
-              <Picker.Item label="200 Level (Sophomore)" value="200" />
-              <Picker.Item label="300 Level (Junior)" value="300" />
-              <Picker.Item label="400 Level (Senior)" value="400" />
-              <Picker.Item label="500 Level (Final Year)" value="500" />
-              <Picker.Item label="Graduate/Masters" value="graduate" />
-            </Picker>
-          </View>
+          <SelectField
+            value={yearOfStudy}
+            placeholder="Select year"
+            options={[
+              { label: '100 Level (Freshman)', value: '100' },
+              { label: '200 Level (Sophomore)', value: '200' },
+              { label: '300 Level (Junior)', value: '300' },
+              { label: '400 Level (Senior)', value: '400' },
+              { label: '500 Level (Final Year)', value: '500' },
+              { label: 'Graduate/Masters', value: 'graduate' },
+            ]}
+            onChange={setYearOfStudy}
+            disabled={loading}
+          />
         </View>
 
         {/* WhatsApp Number Input */}
@@ -312,5 +307,38 @@ export default function ProfileSetupScreen({ navigation, route }) {
         </TouchableOpacity>
       </View>
     </ScrollView>
+  );
+}
+
+function SelectField({ value, placeholder, options, onChange, disabled }) {
+  const displayLabel = options.find((o) => o.value === value)?.label || '';
+
+  const handlePress = () => {
+    if (disabled) return;
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        { options: ['Cancel', ...options.map((o) => o.label)], cancelButtonIndex: 0 },
+        (index) => { if (index > 0) onChange(options[index - 1].value); }
+      );
+    } else {
+      Alert.alert(placeholder, '', [
+        ...options.map((o) => ({ text: o.label, onPress: () => onChange(o.value) })),
+        { text: 'Cancel', style: 'cancel' },
+      ]);
+    }
+  };
+
+  return (
+    <TouchableOpacity
+      className="bg-cardLight px-4 py-4 rounded-xl flex-row items-center justify-between"
+      onPress={handlePress}
+      activeOpacity={0.7}
+      disabled={disabled}
+    >
+      <Text className={displayLabel ? 'text-textPrimary' : 'text-gray-400'}>
+        {displayLabel || placeholder}
+      </Text>
+      <Ionicons name="chevron-down" size={16} color="#9CA3AF" />
+    </TouchableOpacity>
   );
 }

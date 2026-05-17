@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import { signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebaseConfig';
 
@@ -9,17 +9,13 @@ export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [emailTouched, setEmailTouched] = useState(false);
+
+  const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+  const showEmailError = emailTouched && email.length > 0 && !isValidEmail;
+  const canSubmit = isValidEmail && password.length > 0 && !loading;
 
   const handleLogin = async () => {
-    if (!email.trim()) {
-      Alert.alert('Error', 'Please enter your email');
-      return;
-    }
-    if (!password) {
-      Alert.alert('Error', 'Please enter your password');
-      return;
-    }
-
     setLoading(true);
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
@@ -37,15 +33,7 @@ export default function LoginScreen({ navigation }) {
       }
       
     } catch (error) {
-      console.error('Login error:', error);
-      
-      if (error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found') {
-        Alert.alert('Error', 'Invalid email or password. Please try again.');
-      } else if (error.code === 'auth/invalid-email') {
-        Alert.alert('Error', 'Invalid email address.');
-      } else {
-        Alert.alert('Error', 'Failed to log in. Please try again.');
-      }
+      Alert.alert('Login failed', 'The email or password you entered is incorrect. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -69,10 +57,14 @@ export default function LoginScreen({ navigation }) {
           placeholder="your.email@university.edu"
           value={email}
           onChangeText={setEmail}
+          onBlur={() => setEmailTouched(true)}
           keyboardType="email-address"
           autoCapitalize="none"
           editable={!loading}
         />
+        {showEmailError && (
+          <Text className="text-accent text-xs mt-1 ml-1">Please enter a valid email address</Text>
+        )}
       </View>
 
       {/* Password Input */}
@@ -89,7 +81,34 @@ export default function LoginScreen({ navigation }) {
       </View>
 
       {/* Forgot Password */}
-      <TouchableOpacity className="mb-8" disabled={loading}>
+      <TouchableOpacity
+        className="mb-8"
+        disabled={loading}
+        onPress={() => {
+          if (!isValidEmail) {
+            Alert.alert('Enter your email first', 'Type your email address above so we know where to send the reset link.');
+            return;
+          }
+          Alert.alert(
+            'Reset password',
+            `We'll send a reset link to ${email.trim()}.`,
+            [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Send link',
+                onPress: async () => {
+                  try {
+                    await sendPasswordResetEmail(auth, email.trim());
+                    Alert.alert('Email sent', 'Check your inbox for the password reset link.');
+                  } catch {
+                    Alert.alert('Could not send email', 'Make sure the email address is correct and try again.');
+                  }
+                },
+              },
+            ]
+          );
+        }}
+      >
         <Text className="text-accent text-right">Forgot password?</Text>
       </TouchableOpacity>
 
@@ -97,7 +116,8 @@ export default function LoginScreen({ navigation }) {
       <TouchableOpacity
         className="bg-accent py-4 rounded-xl mb-4"
         onPress={handleLogin}
-        disabled={loading}
+        disabled={!canSubmit}
+        style={{ opacity: canSubmit ? 1 : 0.4 }}
       >
         {loading ? (
           <ActivityIndicator color="#FFFFFF" />

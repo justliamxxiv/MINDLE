@@ -1,14 +1,97 @@
 import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Alert, SafeAreaView, ActivityIndicator, Modal } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Alert, SafeAreaView, ActivityIndicator, Modal, TextInput, Switch, Platform, ActionSheetIOS } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { signOut } from 'firebase/auth';
-import { auth } from '../config/firebaseConfig';
+import { doc, updateDoc } from 'firebase/firestore';
+import { auth, db } from '../config/firebaseConfig';
 import { useUser } from '../context/UserContext';
 
+const NIGERIAN_UNIVERSITIES = [
+  'Adeleke University', 'Ahmadu Bello University', 'Babcock University',
+  'Covenant University', 'Federal University of Technology, Akure',
+  'Federal University of Technology, Minna', 'Lagos State University',
+  'Obafemi Awolowo University', 'University of Benin', 'University of Ibadan',
+  'University of Ilorin', 'University of Jos', 'University of Lagos',
+  'University of Nigeria, Nsukka', 'University of Port Harcourt',
+].sort();
+
 export default function ProfileScreen({ navigation }) {
-  const { userData, loading } = useUser();
+  const { userData, loading, refreshUserData } = useUser();
   const [activeModal, setActiveModal] = React.useState(null);
+  const [saving, setSaving] = React.useState(false);
+
+  // Edit form state — initialised when modal opens
+  const [editName, setEditName] = React.useState('');
+  const [editUniversity, setEditUniversity] = React.useState('');
+  const [editDepartment, setEditDepartment] = React.useState('');
+  const [editYear, setEditYear] = React.useState('');
+  const [editWhatsapp, setEditWhatsapp] = React.useState('');
+  const [editBio, setEditBio] = React.useState('');
+  const [editRate, setEditRate] = React.useState('');
+  const [editAvailability, setEditAvailability] = React.useState('');
+
+  // Notification prefs
+  const [notifSessions, setNotifSessions] = React.useState(userData?.notif_sessions ?? true);
+  const [notifGroups, setNotifGroups] = React.useState(userData?.notif_groups ?? true);
+  const [notifTutorReplies, setNotifTutorReplies] = React.useState(userData?.notif_tutorReplies ?? true);
+  const [notifAppUpdates, setNotifAppUpdates] = React.useState(userData?.notif_appUpdates ?? false);
+
+  // Privacy prefs
+  const [privacyShowWhatsapp, setPrivacyShowWhatsapp] = React.useState(userData?.privacy_showWhatsapp ?? true);
+  const [privacyAppearInSearch, setPrivacyAppearInSearch] = React.useState(userData?.privacy_appearInSearch ?? true);
+
+  const savePrefs = async (updates) => {
+    try {
+      await updateDoc(doc(db, 'users', auth.currentUser.uid), updates);
+    } catch (e) {
+      Alert.alert('Error', 'Could not save preference. Please try again.');
+    }
+  };
+
+  const openEditModal = () => {
+    setEditName(userData?.name || '');
+    setEditUniversity(userData?.university || '');
+    setEditDepartment(userData?.department || '');
+    setEditYear(userData?.yearOfStudy || '');
+    setEditWhatsapp(userData?.whatsappNumber || '');
+    setEditBio(userData?.bio || '');
+    setEditRate(userData?.hourlyRate || '');
+    setEditAvailability(userData?.availability || '');
+    setActiveModal('edit');
+  };
+
+  const handleSaveProfile = async () => {
+    if (!editName.trim()) { Alert.alert('Error', 'Name cannot be empty'); return; }
+    if (!editUniversity) { Alert.alert('Error', 'Please select your university'); return; }
+    if (!editDepartment.trim()) { Alert.alert('Error', 'Department cannot be empty'); return; }
+    if (!editWhatsapp.trim()) { Alert.alert('Error', 'WhatsApp number cannot be empty'); return; }
+
+    setSaving(true);
+    try {
+      const user = auth.currentUser;
+      const updates = {
+        name: editName.trim(),
+        university: editUniversity,
+        department: editDepartment.trim(),
+        yearOfStudy: editYear,
+        whatsappNumber: editWhatsapp.trim(),
+      };
+      if (isTutor) {
+        updates.bio = editBio.trim();
+        updates.hourlyRate = editRate.trim();
+        updates.availability = editAvailability.trim();
+      }
+      await updateDoc(doc(db, 'users', user.uid), updates);
+      await refreshUserData();
+      setActiveModal(null);
+    } catch (error) {
+      console.error('Save profile error:', error);
+      Alert.alert('Error', 'Failed to save changes. Please try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleLogout = () => {
     Alert.alert(
@@ -22,7 +105,7 @@ export default function ProfileScreen({ navigation }) {
           onPress: async () => {
             try {
               await signOut(auth);
-              navigation.replace('Welcome');
+              // RootNavigator automatically switches to auth stack when userData clears
             } catch (error) {
               console.error('Logout error:', error);
               Alert.alert('Error', 'Failed to logout');
@@ -72,7 +155,7 @@ export default function ProfileScreen({ navigation }) {
               <TouchableOpacity
                 className="bg-white/15 rounded-2xl p-3"
                 activeOpacity={0.85}
-                onPress={() => setActiveModal('edit')}
+                onPress={openEditModal}
               >
                 <Ionicons name="create-outline" size={20} color="#FFFFFF" />
               </TouchableOpacity>
@@ -153,7 +236,7 @@ export default function ProfileScreen({ navigation }) {
                 icon="person-circle-outline"
                 title="Edit profile"
                 subtitle="Update your academic info, contact details, and preferences."
-                onPress={() => setActiveModal('edit')}
+                onPress={openEditModal}
               />
               <ActionCard
                 icon="notifications-outline"
@@ -185,43 +268,115 @@ export default function ProfileScreen({ navigation }) {
       <ProfileActionModal
         visible={activeModal === 'edit'}
         title="Edit Profile"
-        subtitle="Update your personal and academic details here. We can turn this into a full form next."
+        subtitle="Update your personal and academic details."
         icon="create-outline"
         onClose={() => setActiveModal(null)}
+        footer={
+          <TouchableOpacity
+            className="bg-primary py-4 rounded-2xl mt-4"
+            onPress={handleSaveProfile}
+            disabled={saving}
+            activeOpacity={0.85}
+          >
+            {saving
+              ? <ActivityIndicator color="#fff" />
+              : <Text className="text-white text-center text-base font-semibold">Save changes</Text>
+            }
+          </TouchableOpacity>
+        }
       >
-        <InfoBlock label="Name" value={name} />
-        <InfoBlock label="Email" value={email} />
-        <InfoBlock label="University" value={userData?.university || 'Not added'} />
-        <InfoBlock label="Department" value={userData?.department || 'Not added'} />
-        <InfoBlock label="Year of Study" value={userData?.yearOfStudy || 'Not added'} />
-        <InfoBlock label="WhatsApp" value={userData?.whatsappNumber || 'Not added'} />
-        {isTutor && <InfoBlock label="Tutor Bio" value={userData?.bio || 'Not added'} />}
+        <EditField label="Full name" value={editName} onChangeText={setEditName} placeholder="Your name" />
+
+        <SelectField
+          label="University"
+          value={editUniversity}
+          placeholder="Select university"
+          options={NIGERIAN_UNIVERSITIES.map((u) => ({ label: u, value: u }))}
+          onChange={setEditUniversity}
+          disabled={saving}
+        />
+
+        <EditField label="Department" value={editDepartment} onChangeText={setEditDepartment} placeholder="e.g. Computer Science" disabled={saving} />
+
+        <SelectField
+          label="Year of study"
+          value={editYear}
+          placeholder="Select year"
+          options={[
+            { label: '100 Level', value: '100' },
+            { label: '200 Level', value: '200' },
+            { label: '300 Level', value: '300' },
+            { label: '400 Level', value: '400' },
+            { label: '500 Level', value: '500' },
+            { label: 'Graduate / Masters', value: 'graduate' },
+          ]}
+          onChange={setEditYear}
+          disabled={saving}
+        />
+
+        <EditField label="WhatsApp number" value={editWhatsapp} onChangeText={setEditWhatsapp} placeholder="+234 XXX XXX XXXX" keyboardType="phone-pad" disabled={saving} />
+
+        {isTutor && (
+          <>
+            <EditField label="Bio" value={editBio} onChangeText={setEditBio} placeholder="Tell students about yourself..." multiline disabled={saving} />
+            <EditField label="Hourly rate" value={editRate} onChangeText={setEditRate} placeholder="e.g. ₦2000/hour or Free" disabled={saving} />
+            <EditField label="Availability" value={editAvailability} onChangeText={setEditAvailability} placeholder="e.g. Weekdays 4pm–8pm" multiline disabled={saving} />
+          </>
+        )}
       </ProfileActionModal>
 
       <ProfileActionModal
         visible={activeModal === 'notifications'}
         title="Notifications"
-        subtitle="Here’s the kind of activity this account should stay updated on."
+        subtitle="Choose what you want to be notified about."
         icon="notifications-outline"
         onClose={() => setActiveModal(null)}
       >
-        <BulletRow text="WhatsApp group additions relevant to your course or department" />
-        <BulletRow text="Tutor replies and availability updates" />
-        <BulletRow text="Upcoming sessions and group activity reminders" />
-        <BulletRow text="Account updates and important app notices" />
+        <ToggleRow
+          label="Session reminders"
+          description="Upcoming sessions and confirmation requests"
+          value={notifSessions}
+          onValueChange={(v) => { setNotifSessions(v); savePrefs({ notif_sessions: v }); }}
+        />
+        <ToggleRow
+          label="Group activity"
+          description="New WhatsApp groups added in your department"
+          value={notifGroups}
+          onValueChange={(v) => { setNotifGroups(v); savePrefs({ notif_groups: v }); }}
+        />
+        <ToggleRow
+          label="Tutor replies"
+          description="When a tutor accepts or declines your request"
+          value={notifTutorReplies}
+          onValueChange={(v) => { setNotifTutorReplies(v); savePrefs({ notif_tutorReplies: v }); }}
+        />
+        <ToggleRow
+          label="App updates"
+          description="New features and important app announcements"
+          value={notifAppUpdates}
+          onValueChange={(v) => { setNotifAppUpdates(v); savePrefs({ notif_appUpdates: v }); }}
+        />
       </ProfileActionModal>
 
       <ProfileActionModal
         visible={activeModal === 'privacy'}
         title="Privacy & Safety"
-        subtitle="This area should control what other users can see before they contact you."
+        subtitle="Control what others can see about you."
         icon="shield-checkmark-outline"
         onClose={() => setActiveModal(null)}
       >
-        <BulletRow text="Control who sees your WhatsApp number" />
-        <BulletRow text="Choose whether your profile appears in tutor discovery" />
-        <BulletRow text="Review what academic information is public" />
-        <BulletRow text="Manage how students contact you through the app" />
+        <ToggleRow
+          label="Show WhatsApp number"
+          description="Allow other students to see your WhatsApp contact"
+          value={privacyShowWhatsapp}
+          onValueChange={(v) => { setPrivacyShowWhatsapp(v); savePrefs({ privacy_showWhatsapp: v }); }}
+        />
+        <ToggleRow
+          label="Appear in tutor search"
+          description="Let students find your profile in the tutors list"
+          value={privacyAppearInSearch}
+          onValueChange={(v) => { setPrivacyAppearInSearch(v); savePrefs({ privacy_appearInSearch: v }); }}
+        />
       </ProfileActionModal>
     </SafeAreaView>
   );
@@ -262,7 +417,7 @@ function ActionCard({ icon, title, subtitle, onPress }) {
   );
 }
 
-function ProfileActionModal({ visible, title, subtitle, icon, onClose, children }) {
+function ProfileActionModal({ visible, title, subtitle, icon, onClose, children, footer }) {
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View className="flex-1 bg-black/40 justify-end">
@@ -284,8 +439,9 @@ function ProfileActionModal({ visible, title, subtitle, icon, onClose, children 
             </TouchableOpacity>
           </View>
 
-          <ScrollView showsVerticalScrollIndicator={false}>
+          <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
             {children}
+            {footer}
           </ScrollView>
         </View>
       </View>
@@ -293,22 +449,75 @@ function ProfileActionModal({ visible, title, subtitle, icon, onClose, children 
   );
 }
 
-function InfoBlock({ label, value }) {
+function SelectField({ label, value, placeholder, options, onChange, disabled }) {
+  const displayLabel = options.find((o) => o.value === value)?.label || '';
+
+  const handlePress = () => {
+    if (disabled) return;
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        { options: ['Cancel', ...options.map((o) => o.label)], cancelButtonIndex: 0 },
+        (index) => { if (index > 0) onChange(options[index - 1].value); }
+      );
+    } else {
+      Alert.alert(label, '', [
+        ...options.map((o) => ({ text: o.label, onPress: () => onChange(o.value) })),
+        { text: 'Cancel', style: 'cancel' },
+      ]);
+    }
+  };
+
   return (
-    <View className="bg-cardLight rounded-2xl p-4 mb-3">
+    <View className="mb-3">
       <Text className="text-textSecondary text-sm mb-1">{label}</Text>
-      <Text className="text-primary font-semibold">{value}</Text>
+      <TouchableOpacity
+        className="bg-cardLight px-4 py-3 rounded-2xl flex-row items-center justify-between"
+        onPress={handlePress}
+        activeOpacity={0.7}
+        disabled={disabled}
+      >
+        <Text className={displayLabel ? 'text-primary' : 'text-gray-400'}>
+          {displayLabel || placeholder}
+        </Text>
+        <Ionicons name="chevron-down" size={16} color="#9CA3AF" />
+      </TouchableOpacity>
     </View>
   );
 }
 
-function BulletRow({ text }) {
+function EditField({ label, value, onChangeText, placeholder, multiline, keyboardType, disabled }) {
   return (
-    <View className="flex-row items-start bg-cardLight rounded-2xl p-4 mb-3">
-      <View className="w-7 h-7 rounded-full bg-white items-center justify-center mr-3 mt-0.5">
-        <Ionicons name="checkmark" size={16} color="#FF3131" />
+    <View className="mb-3">
+      <Text className="text-textSecondary text-sm mb-1">{label}</Text>
+      <TextInput
+        className="bg-cardLight px-4 py-3 rounded-2xl text-primary"
+        value={value}
+        onChangeText={onChangeText}
+        placeholder={placeholder}
+        placeholderTextColor="#9CA3AF"
+        multiline={multiline}
+        numberOfLines={multiline ? 3 : 1}
+        textAlignVertical={multiline ? 'top' : 'center'}
+        keyboardType={keyboardType || 'default'}
+        editable={!disabled}
+      />
+    </View>
+  );
+}
+
+function ToggleRow({ label, description, value, onValueChange }) {
+  return (
+    <View className="flex-row items-center bg-cardLight rounded-2xl p-4 mb-3">
+      <View className="flex-1 pr-3">
+        <Text className="text-primary font-semibold mb-0.5">{label}</Text>
+        <Text className="text-textSecondary text-xs leading-5">{description}</Text>
       </View>
-      <Text className="flex-1 text-primary leading-6">{text}</Text>
+      <Switch
+        value={value}
+        onValueChange={onValueChange}
+        trackColor={{ false: '#E5E7EB', true: '#FF3131' }}
+        thumbColor="#FFFFFF"
+      />
     </View>
   );
 }

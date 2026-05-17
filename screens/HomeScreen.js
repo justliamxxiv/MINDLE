@@ -1,20 +1,33 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, SafeAreaView, TouchableOpacity, Dimensions } from 'react-native';
+import { View, Text, ScrollView, SafeAreaView, TouchableOpacity, Dimensions, Alert, Modal, Platform, ActionSheetIOS } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useUser } from '../context/UserContext';
+import { subscribeStudentSessions, studentConfirmSession, SESSION_STATUS } from '../services/sessionService';
 
 const { width } = Dimensions.get('window');
 
+const SESSION_COLORS = ['#FF3131', '#FFB800', '#4CAF50', '#2196F3', '#9C27B0', '#090F43'];
+
 export default function HomeScreen({ navigation }) {
-  const { userData } = useUser();
+  const { userData, firebaseUser } = useUser();
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [sessions, setSessions] = useState([]);
+  const [ratingModal, setRatingModal] = useState({ visible: false, sessionId: null, tutorName: '' });
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 60000);
     return () => clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    if (!firebaseUser?.uid) return;
+    const unsub = subscribeStudentSessions(firebaseUser.uid, (data) => {
+      setSessions(data);
+    });
+    return unsub;
+  }, [firebaseUser?.uid]);
 
   const getGreeting = () => {
     const hour = currentTime.getHours();
@@ -23,27 +36,99 @@ export default function HomeScreen({ navigation }) {
     return 'Good evening';
   };
 
-  const getGreetingEmoji = () => {
-    const hour = currentTime.getHours();
-    if (hour < 12) return '☀️';
-    if (hour < 17) return '👋';
-    return '🌙';
+  const upcomingSessions = sessions.filter((s) => s.status === SESSION_STATUS.ACCEPTED);
+  const needsConfirmation = sessions.filter((s) => s.status === SESSION_STATUS.TUTOR_CONFIRMED);
+
+  const handleConfirmSession = (sessionId, tutorName) => {
+    Alert.alert(
+      'Confirm session',
+      `Did your session with ${tutorName} take place?`,
+      [
+        { text: 'Not yet', style: 'cancel' },
+        {
+          text: 'Yes, rate & confirm',
+          onPress: () => {
+            if (Platform.OS === 'ios') {
+              ActionSheetIOS.showActionSheetWithOptions(
+                {
+                  title: `Rate ${tutorName}`,
+                  message: 'How would you rate this session?',
+                  options: ['Cancel', '⭐ 1 — Poor', '⭐⭐ 2 — Fair', '⭐⭐⭐ 3 — Good', '⭐⭐⭐⭐ 4 — Great', '⭐⭐⭐⭐⭐ 5 — Excellent', 'Skip rating'],
+                  cancelButtonIndex: 0,
+                },
+                async (index) => {
+                  if (index === 0) return;
+                  const rating = index <= 5 ? index : null;
+                  try {
+                    await studentConfirmSession(sessionId, rating);
+                  } catch {
+                    Alert.alert('Error', 'Could not confirm session. Please try again.');
+                  }
+                },
+              );
+            } else {
+              setRatingModal({ visible: true, sessionId, tutorName });
+            }
+          },
+        },
+      ]
+    );
   };
 
-  // Mock tutor progress data (we'll make this dynamic later)
-  const tutorProgress = [
-    { id: 1, course: 'PHY 212', tutor: 'Dr. Okonkwo', progress: 75, color: '#FF3131', sessions: 6 },
-    { id: 2, course: 'CSC 301', tutor: 'Prof. Adebayo', progress: 45, color: '#FFB800', sessions: 3 },
-    { id: 3, course: 'MTH 311', tutor: 'Mr. Ibrahim', progress: 90, color: '#4CAF50', sessions: 8 },
-    { id: 4, course: 'ENG 205', tutor: 'Mrs. Okeke', progress: 30, color: '#2196F3', sessions: 2 },
-  ];
+  const handleRatingSubmit = async (rating) => {
+    const { sessionId } = ratingModal;
+    setRatingModal({ visible: false, sessionId: null, tutorName: '' });
+    try {
+      await studentConfirmSession(sessionId, rating);
+    } catch {
+      Alert.alert('Error', 'Could not confirm session. Please try again.');
+    }
+  };
 
-  const upcomingSessions = [
-    { id: 1, course: 'Physics', time: '2:00 PM', tutor: 'Dr. Okonkwo', color: '#FF3131' },
-    { id: 2, course: 'Calculus', time: '4:30 PM', tutor: 'Prof. Adebayo', color: '#FFB800' },
-  ];
+  // "Your Progress" = tutors you currently have active sessions with (not yet completed)
+  const activeSessionTutorMap = {};
+  sessions
+    .filter((s) => [SESSION_STATUS.ACCEPTED, SESSION_STATUS.TUTOR_CONFIRMED].includes(s.status))
+    .forEach((s) => {
+      if (!activeSessionTutorMap[s.tutorId]) {
+        activeSessionTutorMap[s.tutorId] = { tutorName: s.tutorName, course: s.course, count: 0 };
+      }
+      activeSessionTutorMap[s.tutorId].count += 1;
+    });
+  const tutorProgress = Object.entries(activeSessionTutorMap).map(([id, t], i) => ({
+    id,
+    course: t.course,
+    tutor: t.tutorName,
+    sessions: t.count,
+    color: SESSION_COLORS[i % SESSION_COLORS.length],
+  }));
 
   const firstName = userData?.name?.split(' ')[0] || 'Student!';
+
+  // Streak: count consecutive days (ending today) with at least one COMPLETED session
+  const completedSessions = sessions.filter((s) => s.status === SESSION_STATUS.COMPLETED);
+  const streak = (() => {
+    if (completedSessions.length === 0) return 0;
+    const dayStrings = new Set(
+      completedSessions.map((s) => {
+        const ts = s.createdAt?.toDate ? s.createdAt.toDate() : new Date(s.createdAt);
+        return ts.toDateString();
+      })
+    );
+    let count = 0;
+    const cursor = new Date();
+    while (dayStrings.has(cursor.toDateString())) {
+      count += 1;
+      cursor.setDate(cursor.getDate() - 1);
+    }
+    return count;
+  })();
+
+  // Avg score: mean of scores tutors gave on completed sessions
+  const scoredSessions = completedSessions.filter((s) => s.score != null);
+  const avgScore = scoredSessions.length > 0
+    ? (scoredSessions.reduce((sum, s) => sum + s.score, 0) / scoredSessions.length).toFixed(1)
+    : '—';
 
   return (
     <SafeAreaView className="flex-1 bg-background">
@@ -76,13 +161,13 @@ export default function HomeScreen({ navigation }) {
           <View className="flex-row mb-6" style={{ gap: 12 }}>
             <View className="flex-1 bg-accent p-4 rounded-2xl">
               <Ionicons name="flame" size={28} color="#FFFFFF" />
-              <Text className="text-white text-3xl font-bold mt-2">12</Text>
+              <Text className="text-white text-3xl font-bold mt-2">{streak}</Text>
               <Text className="text-white text-sm opacity-90">Day Streak</Text>
             </View>
-            
+
             <View className="flex-1 bg-primary p-4 rounded-2xl">
               <Ionicons name="trending-up" size={28} color="#FFFFFF" />
-              <Text className="text-white text-3xl font-bold mt-2">8.5</Text>
+              <Text className="text-white text-3xl font-bold mt-2">{avgScore}</Text>
               <Text className="text-white text-sm opacity-90">Avg Score</Text>
             </View>
           </View>
@@ -92,7 +177,7 @@ export default function HomeScreen({ navigation }) {
         <View className="px-6 mb-6">
           <View className="flex-row justify-between items-center mb-4">
             <Text className="text-2xl font-bold text-primary">Your Progress</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Tutors')}>
+            <TouchableOpacity onPress={() => navigation.navigate('StudentTabs', { screen: 'Tutors' })}>
               <Text className="text-accent font-semibold">View All</Text>
             </TouchableOpacity>
           </View>
@@ -100,10 +185,9 @@ export default function HomeScreen({ navigation }) {
           {tutorProgress.length > 0 ? (
             <View style={{ gap: 12 }}>
               {tutorProgress.map((item) => (
-                <TouchableOpacity
+                <View
                   key={item.id}
-                  className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100"
-                  activeOpacity={0.7}
+                  className="bg-white rounded-2xl p-4 border border-gray-100"
                 >
                   <View className="flex-row justify-between items-start mb-3">
                     <View className="flex-1">
@@ -121,24 +205,13 @@ export default function HomeScreen({ navigation }) {
                     </View>
                   </View>
 
-                  <View className="flex-row items-center mb-2">
-                    <View className="flex-1 bg-gray-200 h-2 rounded-full mr-3">
-                      <View
-                        className="h-2 rounded-full"
-                        style={{ 
-                          width: `${item.progress}%`,
-                          backgroundColor: item.color 
-                        }}
-                      />
+                  <View className="flex-row items-center">
+                    <View className="h-2 rounded-full flex-1 bg-gray-100 mr-3">
+                      <View className="h-2 rounded-full w-full" style={{ backgroundColor: item.color, opacity: 0.3 }} />
                     </View>
-                    <Text 
-                      className="text-sm font-bold"
-                      style={{ color: item.color }}
-                    >
-                      {item.progress}%
-                    </Text>
+                    <Text className="text-xs font-semibold" style={{ color: item.color }}>In progress</Text>
                   </View>
-                </TouchableOpacity>
+                </View>
               ))}
             </View>
           ) : (
@@ -151,6 +224,36 @@ export default function HomeScreen({ navigation }) {
           )}
         </View>
 
+        {/* Needs confirmation */}
+        {needsConfirmation.length > 0 && (
+          <View className="px-6 mb-6">
+            <Text className="text-2xl font-bold text-primary mb-4">Confirm Your Sessions</Text>
+            <View style={{ gap: 10 }}>
+              {needsConfirmation.map((session) => (
+                <View key={session.id} className="bg-white rounded-2xl p-4 border border-gray-100">
+                  <View className="flex-row items-center mb-3">
+                    <View style={{ width: 48, height: 48, borderRadius: 14, backgroundColor: '#FFB80018', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                      <Ionicons name="checkmark-circle-outline" size={24} color="#FFB800" />
+                    </View>
+                    <View className="flex-1">
+                      <Text className="text-base font-bold text-primary">{session.course}</Text>
+                      <Text className="text-textSecondary text-sm">with {session.tutorName} · {session.date}</Text>
+                      <Text className="text-yellow-600 text-xs mt-0.5">Tutor marked this as done</Text>
+                    </View>
+                  </View>
+                  <TouchableOpacity
+                    className="bg-accent py-2.5 rounded-xl"
+                    onPress={() => handleConfirmSession(session.id, session.tutorName)}
+                    activeOpacity={0.85}
+                  >
+                    <Text className="text-white text-center text-sm font-semibold">Confirm session</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
         {/* Upcoming Sessions */}
         <View className="px-6 mb-6">
           <View className="flex-row justify-between items-center mb-4">
@@ -159,23 +262,21 @@ export default function HomeScreen({ navigation }) {
 
           {upcomingSessions.length > 0 ? (
             <View style={{ gap: 12 }}>
-              {upcomingSessions.map((session) => (
+              {upcomingSessions.map((session, i) => (
                 <View
                   key={session.id}
                   className="bg-white rounded-2xl p-4 flex-row items-center shadow-sm border border-gray-100"
                 >
-                  <View 
+                  <View
                     className="w-12 h-12 rounded-xl items-center justify-center mr-4"
-                    style={{ backgroundColor: session.color + '20' }}
+                    style={{ backgroundColor: SESSION_COLORS[i % SESSION_COLORS.length] + '20' }}
                   >
-                    <Ionicons name="time" size={24} color={session.color} />
+                    <Ionicons name="time" size={24} color={SESSION_COLORS[i % SESSION_COLORS.length]} />
                   </View>
                   <View className="flex-1">
-                    <Text className="text-base font-bold text-primary mb-1">
-                      {session.course}
-                    </Text>
+                    <Text className="text-base font-bold text-primary mb-1">{session.course}</Text>
                     <Text className="text-textSecondary text-sm">
-                      {session.time} • {session.tutor}
+                      {session.time} · {session.date} · {session.tutorName}
                     </Text>
                   </View>
                   <Ionicons name="chevron-forward" size={20} color="#CCCCCC" />
@@ -184,9 +285,10 @@ export default function HomeScreen({ navigation }) {
             </View>
           ) : (
             <View className="bg-cardLight p-6 rounded-2xl items-center">
-              <Text className="text-textSecondary text-center">
-                No sessions scheduled for today
-              </Text>
+              <Text className="text-textSecondary text-center">No upcoming sessions</Text>
+              <TouchableOpacity onPress={() => navigation.navigate('StudentTabs', { screen: 'Tutors' })} className="mt-2">
+                <Text className="text-accent font-semibold text-sm">Find a tutor →</Text>
+              </TouchableOpacity>
             </View>
           )}
         </View>
@@ -195,7 +297,7 @@ export default function HomeScreen({ navigation }) {
         <View className="px-6 mb-6">
           <View className="flex-row justify-between items-center mb-4">
             <Text className="text-2xl font-bold text-primary">Study Groups</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Groups')}>
+            <TouchableOpacity onPress={() => navigation.navigate('StudentTabs', { screen: 'Groups' })}>
               <Text className="text-accent font-semibold">Explore</Text>
             </TouchableOpacity>
           </View>
@@ -210,7 +312,7 @@ export default function HomeScreen({ navigation }) {
             </Text>
             <TouchableOpacity
               className="bg-white px-6 py-3 rounded-xl"
-              onPress={() => navigation.navigate('Groups')}
+              onPress={() => navigation.navigate('StudentTabs', { screen: 'Groups' })}
               activeOpacity={0.8}
             >
               <Text className="text-accent font-bold">Browse Groups</Text>
@@ -224,24 +326,54 @@ export default function HomeScreen({ navigation }) {
           <View className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
             <View className="flex-row justify-between items-center mb-4">
               <View className="items-center flex-1">
-                <Text className="text-2xl font-bold text-primary">0</Text>
-                <Text className="text-textSecondary text-xs mt-1">Groups</Text>
-              </View>
-              <View className="w-px h-10 bg-gray-200" />
-              <View className="items-center flex-1">
-                <Text className="text-2xl font-bold text-primary">4</Text>
+                <Text className="text-2xl font-bold text-primary">{Object.keys(activeSessionTutorMap).length}</Text>
                 <Text className="text-textSecondary text-xs mt-1">Tutors</Text>
               </View>
               <View className="w-px h-10 bg-gray-200" />
               <View className="items-center flex-1">
-                <Text className="text-2xl font-bold text-primary">19</Text>
-                <Text className="text-textSecondary text-xs mt-1">Sessions</Text>
+                <Text className="text-2xl font-bold text-primary">{upcomingSessions.length}</Text>
+                <Text className="text-textSecondary text-xs mt-1">Upcoming</Text>
+              </View>
+              <View className="w-px h-10 bg-gray-200" />
+              <View className="items-center flex-1">
+                <Text className="text-2xl font-bold text-primary">{completedSessions.length}</Text>
+                <Text className="text-textSecondary text-xs mt-1">Completed</Text>
               </View>
             </View>
           </View>
         </View>
 
       </ScrollView>
+
+      {/* Android tutor rating modal */}
+      <Modal visible={ratingModal.visible} transparent animationType="slide" onRequestClose={() => setRatingModal({ visible: false, sessionId: null, tutorName: '' })}>
+        <View className="flex-1 bg-black/40 justify-end">
+          <View className="bg-background rounded-t-3xl px-6 pt-5 pb-10">
+            <Text className="text-2xl font-bold text-primary mb-1">Rate {ratingModal.tutorName}</Text>
+            <Text className="text-textSecondary mb-5">How would you rate this session?</Text>
+            <View style={{ gap: 10 }}>
+              {[5, 4, 3, 2, 1].map((rating) => (
+                <TouchableOpacity
+                  key={rating}
+                  className="bg-cardLight rounded-2xl py-3 px-4 flex-row items-center"
+                  onPress={() => handleRatingSubmit(rating)}
+                  activeOpacity={0.85}
+                >
+                  <Text className="text-lg mr-3">{'⭐'.repeat(rating)}</Text>
+                  <Text className="text-primary font-semibold">{rating} — {['', 'Poor', 'Fair', 'Good', 'Great', 'Excellent'][rating]}</Text>
+                </TouchableOpacity>
+              ))}
+              <TouchableOpacity
+                className="bg-cardLight rounded-2xl py-3"
+                onPress={() => handleRatingSubmit(null)}
+                activeOpacity={0.85}
+              >
+                <Text className="text-textSecondary text-center font-semibold">Skip rating</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
