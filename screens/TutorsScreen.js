@@ -19,10 +19,17 @@ export default function TutorsScreen({ navigation }) {
   const firstName = userData?.name?.split(' ')[0] || 'Student';
 
   useEffect(() => {
-    const unsub = subscribeTutors((data) => {
-      setTutors(data);
-      setLoading(false);
-    });
+    const unsub = subscribeTutors(
+      (data) => {
+        // Honor the tutor's availability toggle and privacy setting
+        setTutors(data.filter((t) => t.isAvailable !== false && t.privacy_appearInSearch !== false));
+        setLoading(false);
+      },
+      (error) => {
+        console.error('Tutors listener error:', error);
+        setLoading(false);
+      },
+    );
     return unsub;
   }, []);
 

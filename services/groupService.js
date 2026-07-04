@@ -1,6 +1,9 @@
 import {
   collection,
   addDoc,
+  updateDoc,
+  deleteDoc,
+  doc,
   query,
   where,
   onSnapshot,
@@ -23,6 +26,15 @@ export async function createGroup({ name, course, university, department, adminN
     members: 1,
     createdAt: serverTimestamp(),
   });
+}
+
+// Only the creator can update/delete — enforced by Firestore rules
+export async function updateGroup(groupId, updates) {
+  return updateDoc(doc(db, 'groups', groupId), updates);
+}
+
+export async function deleteGroup(groupId) {
+  return deleteDoc(doc(db, 'groups', groupId));
 }
 
 export function subscribeGroups(callback, onError) {

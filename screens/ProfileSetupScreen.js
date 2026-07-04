@@ -2,8 +2,10 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Platform, ActionSheetIOS } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-import { doc, setDoc } from 'firebase/firestore';
-import { auth, db } from '../config/firebaseConfig';
+import { auth } from '../config/firebaseConfig';
+import { useUser } from '../context/UserContext';
+import { updateUserWithUniquePhone } from '../services/userService';
+import { normalizePhone } from '../utils/whatsapp';
 
 const NIGERIAN_UNIVERSITIES = [
   'Adeleke University',
@@ -24,8 +26,11 @@ const NIGERIAN_UNIVERSITIES = [
 ].sort();
 
 export default function ProfileSetupScreen({ navigation, route }) {
-  const userName = route?.params?.userName || '';
-  const userEmail = route?.params?.userEmail || '';
+  const { refreshUserData, userData } = useUser();
+  // Route params are lost when RootNavigator swaps stacks after signup,
+  // so fall back to the Firestore doc saved at signup (via context)
+  const userName = route?.params?.userName || userData?.name || '';
+  const userEmail = route?.params?.userEmail || userData?.email || '';
   
   const [university, setUniversity] = useState('');
   const [department, setDepartment] = useState('');
@@ -58,6 +63,11 @@ export default function ProfileSetupScreen({ navigation, route }) {
       Alert.alert('Error', 'Please enter your WhatsApp number');
       return;
     }
+    const normalizedPhone = normalizePhone(whatsappNumber);
+    if (normalizedPhone.length < 10 || normalizedPhone.length > 15) {
+      Alert.alert('Error', 'Please enter a valid WhatsApp number');
+      return;
+    }
 
     // Tutor-specific validation
     if (accountType === 'tutor') {
@@ -83,15 +93,19 @@ export default function ProfileSetupScreen({ navigation, route }) {
       const profileData = {
         uid: user.uid,
         email: userEmail || user.email,
-        name: userName || user.displayName || '',
         university: university,
         department: department.trim(),
         yearOfStudy: yearOfStudy,
-        whatsappNumber: whatsappNumber.trim(),
         accountType: accountType,
         profileCompleted: true,
-        createdAt: new Date().toISOString(),
       };
+      const resolvedName = userName || user.displayName || '';
+      if (resolvedName) {
+        profileData.name = resolvedName;
+      }
+      if (!userData?.createdAt) {
+        profileData.createdAt = new Date().toISOString();
+      }
 
       // Add tutor-specific fields if tutor
       if (accountType === 'tutor') {
@@ -102,13 +116,18 @@ export default function ProfileSetupScreen({ navigation, route }) {
         profileData.reviewsCount = 0;
       }
 
-      // Save profile data to Firestore
-      await setDoc(doc(db, 'users', user.uid), profileData);
+      // Saves via merge (fields from signup are never wiped) and claims the
+      // WhatsApp number in the unique-phone registry
+      await updateUserWithUniquePhone(user.uid, whatsappNumber, userData?.whatsappNumber, profileData);
 
-      // Navigate to Main App
-      navigation.replace('MainApp');
-      
+      // Updating context triggers RootNavigator to automatically switch to MainApp
+      await refreshUserData();
+
     } catch (error) {
+      if (error.code === 'phone-taken') {
+        Alert.alert('Number already in use', 'This WhatsApp number is already linked to another account. Please use a different number.');
+        return;
+      }
       console.error('Profile setup error:', error);
       Alert.alert('Error', 'Failed to save profile. Please try again.');
     } finally {

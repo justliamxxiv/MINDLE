@@ -6,7 +6,7 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useUser } from '../context/UserContext';
-import { subscribeGroups, createGroup } from '../services/groupService';
+import { subscribeGroups, createGroup, updateGroup, deleteGroup } from '../services/groupService';
 
 const FILTERS = ['All', 'My Campus', 'My Department', 'My Course'];
 
@@ -17,6 +17,7 @@ export default function GroupsScreen() {
   const [activeFilter, setActiveFilter] = useState('All');
   const [search, setSearch] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [editingGroup, setEditingGroup] = useState(null);
 
   const firstName = userData?.name?.split(' ')[0] || 'there';
 
@@ -146,7 +147,12 @@ export default function GroupsScreen() {
           ) : (
             <View style={{ gap: 14 }} className="mb-6">
               {filtered.map((group) => (
-                <GroupCard key={group.id} group={group} />
+                <GroupCard
+                  key={group.id}
+                  group={group}
+                  isOwner={group.createdBy === firebaseUser?.uid}
+                  onEdit={() => setEditingGroup(group)}
+                />
               ))}
             </View>
           )}
@@ -176,16 +182,17 @@ export default function GroupsScreen() {
       </ScrollView>
 
       <AddGroupModal
-        visible={showAddModal}
-        onClose={() => setShowAddModal(false)}
+        visible={showAddModal || !!editingGroup}
+        onClose={() => { setShowAddModal(false); setEditingGroup(null); }}
         userData={userData}
         firebaseUser={firebaseUser}
+        group={editingGroup}
       />
     </SafeAreaView>
   );
 }
 
-function GroupCard({ group }) {
+function GroupCard({ group, isOwner, onEdit }) {
   const handleJoin = () => {
     if (!group.whatsappLink) {
       Alert.alert('No link', 'This group has not provided a join link.');
@@ -205,8 +212,19 @@ function GroupCard({ group }) {
             <Text className="text-textSecondary leading-5">{group.description}</Text>
           ) : null}
         </View>
-        <View className="bg-cardLight px-3 py-1.5 rounded-full">
-          <Text className="text-primary text-xs font-semibold">{group.course}</Text>
+        <View className="flex-row items-center" style={{ gap: 8 }}>
+          <View className="bg-cardLight px-3 py-1.5 rounded-full">
+            <Text className="text-primary text-xs font-semibold">{group.course}</Text>
+          </View>
+          {isOwner && (
+            <TouchableOpacity
+              className="bg-cardLight w-8 h-8 rounded-full items-center justify-center"
+              onPress={onEdit}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="create-outline" size={16} color="#090F43" />
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
@@ -240,23 +258,37 @@ function GroupCard({ group }) {
   );
 }
 
-function AddGroupModal({ visible, onClose, userData, firebaseUser }) {
+function AddGroupModal({ visible, onClose, userData, firebaseUser, group }) {
+  const isEditing = !!group;
   const [name, setName] = useState('');
   const [course, setCourse] = useState('');
-  const [university, setUniversity] = useState(userData?.university || '');
-  const [department, setDepartment] = useState(userData?.department || '');
-  const [adminName, setAdminName] = useState(userData?.name || '');
+  const [university, setUniversity] = useState('');
+  const [department, setDepartment] = useState('');
+  const [adminName, setAdminName] = useState('');
   const [whatsappLink, setWhatsappLink] = useState('');
   const [description, setDescription] = useState('');
   const [schedule, setSchedule] = useState('');
   const [saving, setSaving] = useState(false);
+
+  // Prefill on open: the group's values when editing, the user's defaults when creating
+  useEffect(() => {
+    if (!visible) return;
+    setName(group?.name || '');
+    setCourse(group?.course || '');
+    setUniversity(group?.university ?? userData?.university ?? '');
+    setDepartment(group?.department ?? userData?.department ?? '');
+    setAdminName(group?.adminName ?? userData?.name ?? '');
+    setWhatsappLink(group?.whatsappLink || '');
+    setDescription(group?.description || '');
+    setSchedule(group?.schedule || '');
+  }, [visible, group]);
 
   const canSubmit = name.trim() && course.trim() && whatsappLink.trim() && !saving;
 
   const handleSubmit = async () => {
     setSaving(true);
     try {
-      await createGroup({
+      const fields = {
         name: name.trim(),
         course: course.trim(),
         university: university.trim(),
@@ -265,19 +297,39 @@ function AddGroupModal({ visible, onClose, userData, firebaseUser }) {
         whatsappLink: whatsappLink.trim(),
         description: description.trim(),
         schedule: schedule.trim(),
-        createdBy: firebaseUser?.uid,
-      });
-      Alert.alert('Group added!', 'Your group is now listed and students can discover it.');
+      };
+      if (isEditing) {
+        await updateGroup(group.id, fields);
+        Alert.alert('Group updated', 'Your changes are live.');
+      } else {
+        await createGroup({ ...fields, createdBy: firebaseUser?.uid });
+        Alert.alert('Group added!', 'Your group is now listed and students can discover it.');
+      }
       onClose();
-      // Reset form
-      setName(''); setCourse(''); setWhatsappLink('');
-      setDescription(''); setSchedule('');
     } catch (error) {
       console.error(error);
-      Alert.alert('Error', 'Failed to add group. Please try again.');
+      Alert.alert('Error', `Failed to ${isEditing ? 'update' : 'add'} group. Please try again.`);
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleDelete = () => {
+    Alert.alert('Delete group', 'Remove this group from MINDLE? This cannot be undone.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete', style: 'destructive',
+        onPress: async () => {
+          try {
+            await deleteGroup(group.id);
+            onClose();
+          } catch (error) {
+            console.error(error);
+            Alert.alert('Error', 'Failed to delete group. Please try again.');
+          }
+        },
+      },
+    ]);
   };
 
   return (
@@ -286,8 +338,10 @@ function AddGroupModal({ visible, onClose, userData, firebaseUser }) {
         <View className="bg-background rounded-t-3xl px-6 pt-5 pb-8" style={{ maxHeight: '90%' }}>
           <View className="flex-row items-center justify-between mb-5">
             <View>
-              <Text className="text-2xl font-bold text-primary">Add WhatsApp Group</Text>
-              <Text className="text-textSecondary mt-1">List your group so students can discover it.</Text>
+              <Text className="text-2xl font-bold text-primary">{isEditing ? 'Edit Group' : 'Add WhatsApp Group'}</Text>
+              <Text className="text-textSecondary mt-1">
+                {isEditing ? 'Update your group details.' : 'List your group so students can discover it.'}
+              </Text>
             </View>
             <TouchableOpacity
               className="w-10 h-10 rounded-full bg-cardLight items-center justify-center"
@@ -321,10 +375,16 @@ function AddGroupModal({ visible, onClose, userData, firebaseUser }) {
               >
                 {saving
                   ? <ActivityIndicator color="#fff" />
-                  : <Text className="text-white text-center font-semibold">Submit Group</Text>
+                  : <Text className="text-white text-center font-semibold">{isEditing ? 'Save Changes' : 'Submit Group'}</Text>
                 }
               </TouchableOpacity>
             </View>
+
+            {isEditing && (
+              <TouchableOpacity className="py-3 mb-2" onPress={handleDelete} activeOpacity={0.7} disabled={saving}>
+                <Text className="text-center text-sm font-semibold" style={{ color: '#FF3131' }}>Delete group</Text>
+              </TouchableOpacity>
+            )}
           </ScrollView>
         </View>
       </View>

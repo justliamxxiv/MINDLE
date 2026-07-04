@@ -67,8 +67,10 @@ export default function RequestSessionScreen({ navigation, route }) {
       await requestSession({
         tutorId: tutor.id,
         tutorName: tutor.name,
+        tutorWhatsapp: tutor.whatsappNumber,
         studentId: firebaseUser.uid,
         studentName: userData.name,
+        studentWhatsapp: userData.whatsappNumber,
         course: course.trim(),
         date: date.trim(),
         time,
