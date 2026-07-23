@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, SafeAreaView, TouchableOpacity, Dimensions, Alert, Modal, Platform, ActionSheetIOS } from 'react-native';
+import { View, Text, ScrollView, SafeAreaView, TouchableOpacity, Dimensions, Alert, Modal, Platform, ActionSheetIOS, Linking } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -7,6 +7,7 @@ import { useUser } from '../context/UserContext';
 import {
   subscribeStudentSessions, studentConfirmSession, cancelSession, dismissSession, SESSION_STATUS,
 } from '../services/sessionService';
+import { subscribeGroups } from '../services/groupService';
 import { openWhatsApp } from '../utils/whatsapp';
 
 const { width } = Dimensions.get('window');
@@ -17,6 +18,7 @@ export default function HomeScreen({ navigation }) {
   const { userData, firebaseUser } = useUser();
   const [currentTime, setCurrentTime] = useState(new Date());
   const [sessions, setSessions] = useState([]);
+  const [groups, setGroups] = useState([]);
   const [ratingModal, setRatingModal] = useState({ visible: false, sessionId: null, tutorId: null, tutorName: '' });
 
   useEffect(() => {
@@ -33,6 +35,30 @@ export default function HomeScreen({ navigation }) {
     );
     return unsub;
   }, [firebaseUser?.uid]);
+
+  useEffect(() => {
+    const unsub = subscribeGroups(
+      (data) => setGroups(data),
+      (error) => console.error('Groups listener error:', error),
+    );
+    return unsub;
+  }, []);
+
+  // Surface groups relevant to the student: prefer their campus/department,
+  // fall back to any groups so the section is never empty when groups exist.
+  const relevantGroups = (() => {
+    const mine = groups.filter(
+      (g) => g.university === userData?.university || g.department === userData?.department
+    );
+    return (mine.length > 0 ? mine : groups).slice(0, 3);
+  })();
+
+  const openGroupLink = (group) => {
+    if (!group.whatsappLink) return;
+    Linking.openURL(group.whatsappLink).catch(() =>
+      Alert.alert('Error', 'Could not open WhatsApp link.')
+    );
+  };
 
   const getGreeting = () => {
     const hour = currentTime.getHours();
@@ -416,22 +442,51 @@ export default function HomeScreen({ navigation }) {
             </TouchableOpacity>
           </View>
 
-          <View className="bg-gradient-to-br from-accent to-primary rounded-2xl p-6 items-center">
-            <Ionicons name="people" size={48} color="#FFFFFF" />
-            <Text className="text-white text-lg font-bold mt-3 mb-2">
-              Find Your Study Crew
-            </Text>
-            <Text className="text-white text-center text-sm opacity-90 mb-4">
-              Join groups in your courses and study smarter together
-            </Text>
-            <TouchableOpacity
-              className="bg-white px-6 py-3 rounded-xl"
-              onPress={() => navigation.navigate('StudentTabs', { screen: 'Groups' })}
-              activeOpacity={0.8}
+          {relevantGroups.length > 0 ? (
+            <View style={{ gap: 10 }}>
+              {relevantGroups.map((group) => (
+                <TouchableOpacity
+                  key={group.id}
+                  className="bg-white rounded-2xl p-4 flex-row items-center border border-gray-100"
+                  onPress={() => openGroupLink(group)}
+                  activeOpacity={0.85}
+                >
+                  <View style={{ width: 48, height: 48, borderRadius: 14, backgroundColor: '#25D36618', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                    <Ionicons name="logo-whatsapp" size={24} color="#25D366" />
+                  </View>
+                  <View className="flex-1 pr-2">
+                    <Text className="text-base font-bold text-primary" numberOfLines={1}>{group.name}</Text>
+                    <Text className="text-textSecondary text-sm" numberOfLines={1}>
+                      {group.course}{group.university ? ` · ${group.university}` : ''}
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={20} color="#CCCCCC" />
+                </TouchableOpacity>
+              ))}
+            </View>
+          ) : (
+            <LinearGradient
+              colors={['#FF3131', '#090F43']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={{ borderRadius: 16, padding: 24, alignItems: 'center' }}
             >
-              <Text className="text-accent font-bold">Browse Groups</Text>
-            </TouchableOpacity>
-          </View>
+              <Ionicons name="people" size={48} color="#FFFFFF" />
+              <Text className="text-white text-lg font-bold mt-3 mb-2">
+                Find Your Study Crew
+              </Text>
+              <Text className="text-white text-center text-sm opacity-90 mb-4">
+                Join groups in your courses and study smarter together
+              </Text>
+              <TouchableOpacity
+                className="bg-white px-6 py-3 rounded-xl"
+                onPress={() => navigation.navigate('StudentTabs', { screen: 'Groups' })}
+                activeOpacity={0.8}
+              >
+                <Text className="text-accent font-bold">Browse Groups</Text>
+              </TouchableOpacity>
+            </LinearGradient>
+          )}
         </View>
 
         {/* Quick Stats */}

@@ -3,6 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, Alert, ActivityIndicator } fro
 import { StatusBar } from 'expo-status-bar';
 import { signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import { auth } from '../config/firebaseConfig';
+import { friendlyAuthError } from '../utils/authErrors';
 
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
@@ -20,7 +21,7 @@ export default function LoginScreen({ navigation }) {
       await signInWithEmailAndPassword(auth, email, password);
       // UserContext's auth listener routes to MainApp or ProfileSetup
     } catch (error) {
-      Alert.alert('Login failed', 'The email or password you entered is incorrect. Please try again.');
+      Alert.alert('Login failed', friendlyAuthError(error));
     } finally {
       setLoading(false);
     }
@@ -87,8 +88,8 @@ export default function LoginScreen({ navigation }) {
                   try {
                     await sendPasswordResetEmail(auth, email.trim());
                     Alert.alert('Email sent', 'Check your inbox for the password reset link.');
-                  } catch {
-                    Alert.alert('Could not send email', 'Make sure the email address is correct and try again.');
+                  } catch (error) {
+                    Alert.alert('Could not send email', friendlyAuthError(error));
                   }
                 },
               },

@@ -9,6 +9,7 @@ import { useUser } from '../context/UserContext';
 import { subscribeGroups, createGroup, updateGroup, deleteGroup } from '../services/groupService';
 
 const FILTERS = ['All', 'My Campus', 'My Department', 'My Course'];
+const PAGE_SIZE = 5;
 
 export default function GroupsScreen() {
   const { userData, firebaseUser } = useUser();
@@ -18,8 +19,14 @@ export default function GroupsScreen() {
   const [search, setSearch] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingGroup, setEditingGroup] = useState(null);
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
   const firstName = userData?.name?.split(' ')[0] || 'there';
+
+  // Reset paging to the first page whenever the list being shown changes
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [search, activeFilter]);
 
   useEffect(() => {
     const unsub = subscribeGroups(
@@ -46,7 +53,7 @@ export default function GroupsScreen() {
     return true;
   });
 
-  const totalMembers = groups.reduce((sum, g) => sum + (g.members || 0), 0);
+  const myCampusCount = groups.filter((g) => g.university === userData?.university).length;
 
   return (
     <SafeAreaView className="flex-1 bg-background">
@@ -117,8 +124,8 @@ export default function GroupsScreen() {
                 <Text className="text-white opacity-80 text-sm mt-1">WhatsApp groups</Text>
               </View>
               <View style={{ backgroundColor: 'rgba(255,255,255,0.10)' }} className="flex-1 rounded-2xl p-4">
-                <Text className="text-white text-2xl font-bold">{loading ? '—' : totalMembers}</Text>
-                <Text className="text-white opacity-80 text-sm mt-1">Students inside</Text>
+                <Text className="text-white text-2xl font-bold">{loading ? '—' : myCampusCount}</Text>
+                <Text className="text-white opacity-80 text-sm mt-1">On your campus</Text>
               </View>
             </View>
           </View>
@@ -145,15 +152,30 @@ export default function GroupsScreen() {
               </Text>
             </View>
           ) : (
-            <View style={{ gap: 14 }} className="mb-6">
-              {filtered.map((group) => (
-                <GroupCard
-                  key={group.id}
-                  group={group}
-                  isOwner={group.createdBy === firebaseUser?.uid}
-                  onEdit={() => setEditingGroup(group)}
-                />
-              ))}
+            <View className="mb-6">
+              <View style={{ gap: 14 }}>
+                {filtered.slice(0, visibleCount).map((group) => (
+                  <GroupCard
+                    key={group.id}
+                    group={group}
+                    isOwner={group.createdBy === firebaseUser?.uid}
+                    onEdit={() => setEditingGroup(group)}
+                  />
+                ))}
+              </View>
+
+              {filtered.length > visibleCount && (
+                <TouchableOpacity
+                  className="mt-4 py-3 flex-row items-center justify-center"
+                  onPress={() => setVisibleCount((c) => c + PAGE_SIZE)}
+                  activeOpacity={0.7}
+                >
+                  <Text className="text-accent font-semibold text-center mr-1">
+                    View more ({filtered.length - visibleCount})
+                  </Text>
+                  <Ionicons name="chevron-down" size={16} color="#FF3131" />
+                </TouchableOpacity>
+              )}
             </View>
           )}
 
@@ -228,9 +250,9 @@ function GroupCard({ group, isOwner, onEdit }) {
         </View>
       </View>
 
-      <Text className="text-textSecondary text-sm mb-3">
-        {group.schedule ? `${group.schedule} · ` : ''}{group.members || 1} member{group.members !== 1 ? 's' : ''}
-      </Text>
+      {group.schedule ? (
+        <Text className="text-textSecondary text-sm mb-3">{group.schedule}</Text>
+      ) : null}
 
       <View className="flex-row flex-wrap mb-4" style={{ gap: 8 }}>
         <View className="bg-cardLight rounded-full px-3 py-1.5 flex-row items-center">

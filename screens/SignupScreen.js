@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth, db } from '../config/firebaseConfig';
 import { doc, setDoc } from 'firebase/firestore';
+import { friendlyAuthError } from '../utils/authErrors';
 
 export default function SignupScreen({ navigation }) {
   const [name, setName] = useState('');
@@ -44,34 +45,21 @@ export default function SignupScreen({ navigation }) {
     // Firebase signup
     setLoading(true);
     try {
-  const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-  const user = userCredential.user;
-  
-  // Save basic user info immediately
-  await setDoc(doc(db, 'users', user.uid), {
-    uid: user.uid,
-    email: user.email,
-    name: name.trim(),
-    profileCompleted: false,
-    createdAt: new Date().toISOString(),
-  });
-  
-  // Navigate to profile setup
-  navigation.replace('ProfileSetup', { userName: name });
-      
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+
+      // Save basic user info immediately. The auth listener in UserContext
+      // then routes to ProfileSetup, which reads the name from context.
+      await setDoc(doc(db, 'users', user.uid), {
+        uid: user.uid,
+        email: user.email,
+        name: name.trim(),
+        profileCompleted: false,
+        createdAt: new Date().toISOString(),
+      });
     } catch (error) {
       console.error('Signup error:', error);
-      
-      // Handle specific Firebase errors
-      if (error.code === 'auth/email-already-in-use') {
-        Alert.alert('Error', 'This email is already registered. Please login instead.');
-      } else if (error.code === 'auth/invalid-email') {
-        Alert.alert('Error', 'Invalid email address.');
-      } else if (error.code === 'auth/weak-password') {
-        Alert.alert('Error', 'Password is too weak. Please use a stronger password.');
-      } else {
-        Alert.alert('Error', 'Failed to create account. Please try again.');
-      }
+      Alert.alert('Sign up failed', friendlyAuthError(error));
     } finally {
       setLoading(false);
     }
