@@ -5,7 +5,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../config/firebaseConfig';
 import { useUser } from '../context/UserContext';
-import { subscribeTutorSessions, updateSessionStatus, tutorConfirmSession, SESSION_STATUS } from '../services/sessionService';
+import {
+  subscribeTutorSessions, updateSessionStatus, tutorConfirmSession, cancelSession, SESSION_STATUS,
+} from '../services/sessionService';
+import { openWhatsApp } from '../utils/whatsapp';
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -28,10 +31,17 @@ export default function TutorHomeScreen({ navigation }) {
       setLoading(false);
       return;
     }
-    const unsub = subscribeTutorSessions(firebaseUser.uid, (data) => {
-      setSessions(data);
-      setLoading(false);
-    });
+    const unsub = subscribeTutorSessions(
+      firebaseUser.uid,
+      (data) => {
+        setSessions(data);
+        setLoading(false);
+      },
+      (error) => {
+        console.error('Sessions listener error:', error);
+        setLoading(false);
+      },
+    );
     return unsub;
   }, [firebaseUser?.uid]);
 
@@ -89,6 +99,26 @@ export default function TutorHomeScreen({ navigation }) {
         },
       },
     ]);
+  };
+
+  const handleCancelSession = (session) => {
+    Alert.alert(
+      'Cancel session',
+      `Cancel your session with ${session.studentName}? They will see it was cancelled.`,
+      [
+        { text: 'Keep it', style: 'cancel' },
+        {
+          text: 'Yes, cancel', style: 'destructive',
+          onPress: async () => {
+            try {
+              await cancelSession(session.id, 'tutor');
+            } catch {
+              Alert.alert('Error', 'Could not cancel session. Please try again.');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleMarkDone = (sessionId) => {
@@ -310,12 +340,32 @@ export default function TutorHomeScreen({ navigation }) {
                           </View>
                         </View>
                       </View>
+                      <View className="flex-row" style={{ gap: 10 }}>
+                        {session.studentWhatsapp ? (
+                          <TouchableOpacity
+                            className="flex-1 py-2.5 rounded-xl flex-row items-center justify-center"
+                            style={{ backgroundColor: '#25D36618' }}
+                            onPress={() => openWhatsApp(session.studentWhatsapp)}
+                            activeOpacity={0.85}
+                          >
+                            <Ionicons name="logo-whatsapp" size={16} color="#128C7E" />
+                            <Text className="text-sm font-semibold ml-2" style={{ color: '#128C7E' }}>Message</Text>
+                          </TouchableOpacity>
+                        ) : null}
+                        <TouchableOpacity
+                          className="flex-1 bg-cardLight py-2.5 rounded-xl"
+                          onPress={() => handleMarkDone(session.id)}
+                          activeOpacity={0.8}
+                        >
+                          <Text className="text-primary text-center text-sm font-semibold">Mark as done</Text>
+                        </TouchableOpacity>
+                      </View>
                       <TouchableOpacity
-                        className="bg-cardLight py-2.5 rounded-xl"
-                        onPress={() => handleMarkDone(session.id)}
-                        activeOpacity={0.8}
+                        className="mt-2 py-1.5"
+                        onPress={() => handleCancelSession(session)}
+                        activeOpacity={0.7}
                       >
-                        <Text className="text-primary text-center text-sm font-semibold">Mark as done</Text>
+                        <Text className="text-center text-xs font-semibold" style={{ color: '#FF3131' }}>Cancel session</Text>
                       </TouchableOpacity>
                     </View>
                   ))}

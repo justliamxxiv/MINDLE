@@ -6,9 +6,10 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useUser } from '../context/UserContext';
-import { subscribeGroups, createGroup } from '../services/groupService';
+import { subscribeGroups, createGroup, updateGroup, deleteGroup } from '../services/groupService';
 
 const FILTERS = ['All', 'My Campus', 'My Department', 'My Course'];
+const PAGE_SIZE = 5;
 
 export default function GroupsScreen() {
   const { userData, firebaseUser } = useUser();
@@ -17,8 +18,15 @@ export default function GroupsScreen() {
   const [activeFilter, setActiveFilter] = useState('All');
   const [search, setSearch] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [editingGroup, setEditingGroup] = useState(null);
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
   const firstName = userData?.name?.split(' ')[0] || 'there';
+
+  // Reset paging to the first page whenever the list being shown changes
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [search, activeFilter]);
 
   useEffect(() => {
     const unsub = subscribeGroups(
@@ -45,7 +53,7 @@ export default function GroupsScreen() {
     return true;
   });
 
-  const totalMembers = groups.reduce((sum, g) => sum + (g.members || 0), 0);
+  const myCampusCount = groups.filter((g) => g.university === userData?.university).length;
 
   return (
     <SafeAreaView className="flex-1 bg-background">
@@ -116,8 +124,8 @@ export default function GroupsScreen() {
                 <Text className="text-white opacity-80 text-sm mt-1">WhatsApp groups</Text>
               </View>
               <View style={{ backgroundColor: 'rgba(255,255,255,0.10)' }} className="flex-1 rounded-2xl p-4">
-                <Text className="text-white text-2xl font-bold">{loading ? '—' : totalMembers}</Text>
-                <Text className="text-white opacity-80 text-sm mt-1">Students inside</Text>
+                <Text className="text-white text-2xl font-bold">{loading ? '—' : myCampusCount}</Text>
+                <Text className="text-white opacity-80 text-sm mt-1">On your campus</Text>
               </View>
             </View>
           </View>
@@ -144,10 +152,30 @@ export default function GroupsScreen() {
               </Text>
             </View>
           ) : (
-            <View style={{ gap: 14 }} className="mb-6">
-              {filtered.map((group) => (
-                <GroupCard key={group.id} group={group} />
-              ))}
+            <View className="mb-6">
+              <View style={{ gap: 14 }}>
+                {filtered.slice(0, visibleCount).map((group) => (
+                  <GroupCard
+                    key={group.id}
+                    group={group}
+                    isOwner={group.createdBy === firebaseUser?.uid}
+                    onEdit={() => setEditingGroup(group)}
+                  />
+                ))}
+              </View>
+
+              {filtered.length > visibleCount && (
+                <TouchableOpacity
+                  className="mt-4 py-3 flex-row items-center justify-center"
+                  onPress={() => setVisibleCount((c) => c + PAGE_SIZE)}
+                  activeOpacity={0.7}
+                >
+                  <Text className="text-accent font-semibold text-center mr-1">
+                    View more ({filtered.length - visibleCount})
+                  </Text>
+                  <Ionicons name="chevron-down" size={16} color="#FF3131" />
+                </TouchableOpacity>
+              )}
             </View>
           )}
 
@@ -176,16 +204,17 @@ export default function GroupsScreen() {
       </ScrollView>
 
       <AddGroupModal
-        visible={showAddModal}
-        onClose={() => setShowAddModal(false)}
+        visible={showAddModal || !!editingGroup}
+        onClose={() => { setShowAddModal(false); setEditingGroup(null); }}
         userData={userData}
         firebaseUser={firebaseUser}
+        group={editingGroup}
       />
     </SafeAreaView>
   );
 }
 
-function GroupCard({ group }) {
+function GroupCard({ group, isOwner, onEdit }) {
   const handleJoin = () => {
     if (!group.whatsappLink) {
       Alert.alert('No link', 'This group has not provided a join link.');
@@ -205,14 +234,25 @@ function GroupCard({ group }) {
             <Text className="text-textSecondary leading-5">{group.description}</Text>
           ) : null}
         </View>
-        <View className="bg-cardLight px-3 py-1.5 rounded-full">
-          <Text className="text-primary text-xs font-semibold">{group.course}</Text>
+        <View className="flex-row items-center" style={{ gap: 8 }}>
+          <View className="bg-cardLight px-3 py-1.5 rounded-full">
+            <Text className="text-primary text-xs font-semibold">{group.course}</Text>
+          </View>
+          {isOwner && (
+            <TouchableOpacity
+              className="bg-cardLight w-8 h-8 rounded-full items-center justify-center"
+              onPress={onEdit}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="create-outline" size={16} color="#090F43" />
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
-      <Text className="text-textSecondary text-sm mb-3">
-        {group.schedule ? `${group.schedule} · ` : ''}{group.members || 1} member{group.members !== 1 ? 's' : ''}
-      </Text>
+      {group.schedule ? (
+        <Text className="text-textSecondary text-sm mb-3">{group.schedule}</Text>
+      ) : null}
 
       <View className="flex-row flex-wrap mb-4" style={{ gap: 8 }}>
         <View className="bg-cardLight rounded-full px-3 py-1.5 flex-row items-center">
@@ -240,23 +280,37 @@ function GroupCard({ group }) {
   );
 }
 
-function AddGroupModal({ visible, onClose, userData, firebaseUser }) {
+function AddGroupModal({ visible, onClose, userData, firebaseUser, group }) {
+  const isEditing = !!group;
   const [name, setName] = useState('');
   const [course, setCourse] = useState('');
-  const [university, setUniversity] = useState(userData?.university || '');
-  const [department, setDepartment] = useState(userData?.department || '');
-  const [adminName, setAdminName] = useState(userData?.name || '');
+  const [university, setUniversity] = useState('');
+  const [department, setDepartment] = useState('');
+  const [adminName, setAdminName] = useState('');
   const [whatsappLink, setWhatsappLink] = useState('');
   const [description, setDescription] = useState('');
   const [schedule, setSchedule] = useState('');
   const [saving, setSaving] = useState(false);
+
+  // Prefill on open: the group's values when editing, the user's defaults when creating
+  useEffect(() => {
+    if (!visible) return;
+    setName(group?.name || '');
+    setCourse(group?.course || '');
+    setUniversity(group?.university ?? userData?.university ?? '');
+    setDepartment(group?.department ?? userData?.department ?? '');
+    setAdminName(group?.adminName ?? userData?.name ?? '');
+    setWhatsappLink(group?.whatsappLink || '');
+    setDescription(group?.description || '');
+    setSchedule(group?.schedule || '');
+  }, [visible, group]);
 
   const canSubmit = name.trim() && course.trim() && whatsappLink.trim() && !saving;
 
   const handleSubmit = async () => {
     setSaving(true);
     try {
-      await createGroup({
+      const fields = {
         name: name.trim(),
         course: course.trim(),
         university: university.trim(),
@@ -265,19 +319,39 @@ function AddGroupModal({ visible, onClose, userData, firebaseUser }) {
         whatsappLink: whatsappLink.trim(),
         description: description.trim(),
         schedule: schedule.trim(),
-        createdBy: firebaseUser?.uid,
-      });
-      Alert.alert('Group added!', 'Your group is now listed and students can discover it.');
+      };
+      if (isEditing) {
+        await updateGroup(group.id, fields);
+        Alert.alert('Group updated', 'Your changes are live.');
+      } else {
+        await createGroup({ ...fields, createdBy: firebaseUser?.uid });
+        Alert.alert('Group added!', 'Your group is now listed and students can discover it.');
+      }
       onClose();
-      // Reset form
-      setName(''); setCourse(''); setWhatsappLink('');
-      setDescription(''); setSchedule('');
     } catch (error) {
       console.error(error);
-      Alert.alert('Error', 'Failed to add group. Please try again.');
+      Alert.alert('Error', `Failed to ${isEditing ? 'update' : 'add'} group. Please try again.`);
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleDelete = () => {
+    Alert.alert('Delete group', 'Remove this group from MINDLE? This cannot be undone.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete', style: 'destructive',
+        onPress: async () => {
+          try {
+            await deleteGroup(group.id);
+            onClose();
+          } catch (error) {
+            console.error(error);
+            Alert.alert('Error', 'Failed to delete group. Please try again.');
+          }
+        },
+      },
+    ]);
   };
 
   return (
@@ -286,8 +360,10 @@ function AddGroupModal({ visible, onClose, userData, firebaseUser }) {
         <View className="bg-background rounded-t-3xl px-6 pt-5 pb-8" style={{ maxHeight: '90%' }}>
           <View className="flex-row items-center justify-between mb-5">
             <View>
-              <Text className="text-2xl font-bold text-primary">Add WhatsApp Group</Text>
-              <Text className="text-textSecondary mt-1">List your group so students can discover it.</Text>
+              <Text className="text-2xl font-bold text-primary">{isEditing ? 'Edit Group' : 'Add WhatsApp Group'}</Text>
+              <Text className="text-textSecondary mt-1">
+                {isEditing ? 'Update your group details.' : 'List your group so students can discover it.'}
+              </Text>
             </View>
             <TouchableOpacity
               className="w-10 h-10 rounded-full bg-cardLight items-center justify-center"
@@ -321,10 +397,16 @@ function AddGroupModal({ visible, onClose, userData, firebaseUser }) {
               >
                 {saving
                   ? <ActivityIndicator color="#fff" />
-                  : <Text className="text-white text-center font-semibold">Submit Group</Text>
+                  : <Text className="text-white text-center font-semibold">{isEditing ? 'Save Changes' : 'Submit Group'}</Text>
                 }
               </TouchableOpacity>
             </View>
+
+            {isEditing && (
+              <TouchableOpacity className="py-3 mb-2" onPress={handleDelete} activeOpacity={0.7} disabled={saving}>
+                <Text className="text-center text-sm font-semibold" style={{ color: '#FF3131' }}>Delete group</Text>
+              </TouchableOpacity>
+            )}
           </ScrollView>
         </View>
       </View>

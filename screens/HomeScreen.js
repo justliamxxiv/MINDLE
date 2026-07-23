@@ -1,10 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, SafeAreaView, TouchableOpacity, Dimensions, Alert, Modal, Platform, ActionSheetIOS } from 'react-native';
+import { View, Text, ScrollView, SafeAreaView, TouchableOpacity, Dimensions, Alert, Modal, Platform, ActionSheetIOS, Linking } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useUser } from '../context/UserContext';
-import { subscribeStudentSessions, studentConfirmSession, SESSION_STATUS } from '../services/sessionService';
+import {
+  subscribeStudentSessions, studentConfirmSession, cancelSession, dismissSession, SESSION_STATUS,
+} from '../services/sessionService';
+import { subscribeGroups } from '../services/groupService';
+import { openWhatsApp } from '../utils/whatsapp';
 
 const { width } = Dimensions.get('window');
 
@@ -14,7 +18,8 @@ export default function HomeScreen({ navigation }) {
   const { userData, firebaseUser } = useUser();
   const [currentTime, setCurrentTime] = useState(new Date());
   const [sessions, setSessions] = useState([]);
-  const [ratingModal, setRatingModal] = useState({ visible: false, sessionId: null, tutorName: '' });
+  const [groups, setGroups] = useState([]);
+  const [ratingModal, setRatingModal] = useState({ visible: false, sessionId: null, tutorId: null, tutorName: '' });
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 60000);
@@ -23,11 +28,37 @@ export default function HomeScreen({ navigation }) {
 
   useEffect(() => {
     if (!firebaseUser?.uid) return;
-    const unsub = subscribeStudentSessions(firebaseUser.uid, (data) => {
-      setSessions(data);
-    });
+    const unsub = subscribeStudentSessions(
+      firebaseUser.uid,
+      (data) => setSessions(data),
+      (error) => console.error('Sessions listener error:', error),
+    );
     return unsub;
   }, [firebaseUser?.uid]);
+
+  useEffect(() => {
+    const unsub = subscribeGroups(
+      (data) => setGroups(data),
+      (error) => console.error('Groups listener error:', error),
+    );
+    return unsub;
+  }, []);
+
+  // Surface groups relevant to the student: prefer their campus/department,
+  // fall back to any groups so the section is never empty when groups exist.
+  const relevantGroups = (() => {
+    const mine = groups.filter(
+      (g) => g.university === userData?.university || g.department === userData?.department
+    );
+    return (mine.length > 0 ? mine : groups).slice(0, 3);
+  })();
+
+  const openGroupLink = (group) => {
+    if (!group.whatsappLink) return;
+    Linking.openURL(group.whatsappLink).catch(() =>
+      Alert.alert('Error', 'Could not open WhatsApp link.')
+    );
+  };
 
   const getGreeting = () => {
     const hour = currentTime.getHours();
@@ -38,11 +69,15 @@ export default function HomeScreen({ navigation }) {
 
   const upcomingSessions = sessions.filter((s) => s.status === SESSION_STATUS.ACCEPTED);
   const needsConfirmation = sessions.filter((s) => s.status === SESSION_STATUS.TUTOR_CONFIRMED);
+  const pendingRequests = sessions.filter((s) => s.status === SESSION_STATUS.PENDING);
+  const closedRequests = sessions.filter(
+    (s) => (s.status === SESSION_STATUS.DECLINED || s.status === SESSION_STATUS.CANCELLED) && !s.studentDismissed
+  );
 
-  const handleConfirmSession = (sessionId, tutorName) => {
+  const handleConfirmSession = (session) => {
     Alert.alert(
       'Confirm session',
-      `Did your session with ${tutorName} take place?`,
+      `Did your session with ${session.tutorName} take place?`,
       [
         { text: 'Not yet', style: 'cancel' },
         {
@@ -51,7 +86,7 @@ export default function HomeScreen({ navigation }) {
             if (Platform.OS === 'ios') {
               ActionSheetIOS.showActionSheetWithOptions(
                 {
-                  title: `Rate ${tutorName}`,
+                  title: `Rate ${session.tutorName}`,
                   message: 'How would you rate this session?',
                   options: ['Cancel', '⭐ 1 — Poor', '⭐⭐ 2 — Fair', '⭐⭐⭐ 3 — Good', '⭐⭐⭐⭐ 4 — Great', '⭐⭐⭐⭐⭐ 5 — Excellent', 'Skip rating'],
                   cancelButtonIndex: 0,
@@ -60,14 +95,14 @@ export default function HomeScreen({ navigation }) {
                   if (index === 0) return;
                   const rating = index <= 5 ? index : null;
                   try {
-                    await studentConfirmSession(sessionId, rating);
+                    await studentConfirmSession(session.id, session.tutorId, rating);
                   } catch {
                     Alert.alert('Error', 'Could not confirm session. Please try again.');
                   }
                 },
               );
             } else {
-              setRatingModal({ visible: true, sessionId, tutorName });
+              setRatingModal({ visible: true, sessionId: session.id, tutorId: session.tutorId, tutorName: session.tutorName });
             }
           },
         },
@@ -76,13 +111,36 @@ export default function HomeScreen({ navigation }) {
   };
 
   const handleRatingSubmit = async (rating) => {
-    const { sessionId } = ratingModal;
-    setRatingModal({ visible: false, sessionId: null, tutorName: '' });
+    const { sessionId, tutorId } = ratingModal;
+    setRatingModal({ visible: false, sessionId: null, tutorId: null, tutorName: '' });
     try {
-      await studentConfirmSession(sessionId, rating);
+      await studentConfirmSession(sessionId, tutorId, rating);
     } catch {
       Alert.alert('Error', 'Could not confirm session. Please try again.');
     }
+  };
+
+  const handleCancelSession = (session) => {
+    const isPending = session.status === SESSION_STATUS.PENDING;
+    Alert.alert(
+      isPending ? 'Cancel request' : 'Cancel session',
+      isPending
+        ? `Cancel your session request to ${session.tutorName}?`
+        : `Cancel your session with ${session.tutorName}? They will see it was cancelled.`,
+      [
+        { text: 'Keep it', style: 'cancel' },
+        {
+          text: 'Yes, cancel', style: 'destructive',
+          onPress: async () => {
+            try {
+              await cancelSession(session.id, 'student');
+            } catch {
+              Alert.alert('Error', 'Could not cancel. Please try again.');
+            }
+          },
+        },
+      ]
+    );
   };
 
   // "Your Progress" = tutors you currently have active sessions with (not yet completed)
@@ -111,7 +169,9 @@ export default function HomeScreen({ navigation }) {
     if (completedSessions.length === 0) return 0;
     const dayStrings = new Set(
       completedSessions.map((s) => {
-        const ts = s.createdAt?.toDate ? s.createdAt.toDate() : new Date(s.createdAt);
+        // Prefer completedAt (when the session actually happened); older docs only have createdAt
+        const raw = s.completedAt || s.createdAt;
+        const ts = raw?.toDate ? raw.toDate() : new Date(raw);
         return ts.toDateString();
       })
     );
@@ -243,13 +303,72 @@ export default function HomeScreen({ navigation }) {
                   </View>
                   <TouchableOpacity
                     className="bg-accent py-2.5 rounded-xl"
-                    onPress={() => handleConfirmSession(session.id, session.tutorName)}
+                    onPress={() => handleConfirmSession(session)}
                     activeOpacity={0.85}
                   >
                     <Text className="text-white text-center text-sm font-semibold">Confirm session</Text>
                   </TouchableOpacity>
                 </View>
               ))}
+            </View>
+          </View>
+        )}
+
+        {/* Your Requests — pending, declined, and cancelled session requests */}
+        {(pendingRequests.length > 0 || closedRequests.length > 0) && (
+          <View className="px-6 mb-6">
+            <Text className="text-2xl font-bold text-primary mb-4">Your Requests</Text>
+            <View style={{ gap: 10 }}>
+              {pendingRequests.map((session) => (
+                <View key={session.id} className="bg-white rounded-2xl p-4 border border-gray-100">
+                  <View className="flex-row items-center mb-3">
+                    <View style={{ width: 48, height: 48, borderRadius: 14, backgroundColor: '#2196F318', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                      <Ionicons name="hourglass-outline" size={22} color="#2196F3" />
+                    </View>
+                    <View className="flex-1">
+                      <Text className="text-base font-bold text-primary">{session.course}</Text>
+                      <Text className="text-textSecondary text-sm">to {session.tutorName} · {session.date} at {session.time}</Text>
+                      <View className="bg-blue-100 self-start px-2 py-0.5 rounded-full mt-1">
+                        <Text className="text-blue-700 text-xs font-semibold">Waiting for tutor</Text>
+                      </View>
+                    </View>
+                  </View>
+                  <TouchableOpacity
+                    className="bg-cardLight py-2.5 rounded-xl"
+                    onPress={() => handleCancelSession(session)}
+                    activeOpacity={0.85}
+                  >
+                    <Text className="text-primary text-center text-sm font-semibold">Cancel request</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+
+              {closedRequests.map((session) => {
+                const label = session.status === SESSION_STATUS.DECLINED
+                  ? 'Declined by tutor'
+                  : session.cancelledBy === 'tutor' ? 'Cancelled by tutor' : 'Cancelled';
+                return (
+                  <View key={session.id} className="bg-white rounded-2xl p-4 border border-gray-100 flex-row items-center">
+                    <View style={{ width: 48, height: 48, borderRadius: 14, backgroundColor: '#9CA3AF18', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                      <Ionicons name="close-circle-outline" size={22} color="#9CA3AF" />
+                    </View>
+                    <View className="flex-1">
+                      <Text className="text-base font-bold text-primary">{session.course}</Text>
+                      <Text className="text-textSecondary text-sm">with {session.tutorName}</Text>
+                      <View className="bg-gray-100 self-start px-2 py-0.5 rounded-full mt-1">
+                        <Text className="text-gray-500 text-xs font-semibold">{label}</Text>
+                      </View>
+                    </View>
+                    <TouchableOpacity
+                      className="w-8 h-8 rounded-full bg-cardLight items-center justify-center"
+                      onPress={() => dismissSession(session.id).catch(() => {})}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons name="close" size={16} color="#666666" />
+                    </TouchableOpacity>
+                  </View>
+                );
+              })}
             </View>
           </View>
         )}
@@ -265,21 +384,42 @@ export default function HomeScreen({ navigation }) {
               {upcomingSessions.map((session, i) => (
                 <View
                   key={session.id}
-                  className="bg-white rounded-2xl p-4 flex-row items-center shadow-sm border border-gray-100"
+                  className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100"
                 >
-                  <View
-                    className="w-12 h-12 rounded-xl items-center justify-center mr-4"
-                    style={{ backgroundColor: SESSION_COLORS[i % SESSION_COLORS.length] + '20' }}
-                  >
-                    <Ionicons name="time" size={24} color={SESSION_COLORS[i % SESSION_COLORS.length]} />
+                  <View className="flex-row items-center mb-3">
+                    <View
+                      className="w-12 h-12 rounded-xl items-center justify-center mr-4"
+                      style={{ backgroundColor: SESSION_COLORS[i % SESSION_COLORS.length] + '20' }}
+                    >
+                      <Ionicons name="time" size={24} color={SESSION_COLORS[i % SESSION_COLORS.length]} />
+                    </View>
+                    <View className="flex-1">
+                      <Text className="text-base font-bold text-primary mb-1">{session.course}</Text>
+                      <Text className="text-textSecondary text-sm">
+                        {session.time} · {session.date} · {session.tutorName}
+                      </Text>
+                    </View>
                   </View>
-                  <View className="flex-1">
-                    <Text className="text-base font-bold text-primary mb-1">{session.course}</Text>
-                    <Text className="text-textSecondary text-sm">
-                      {session.time} · {session.date} · {session.tutorName}
-                    </Text>
+                  <View className="flex-row" style={{ gap: 10 }}>
+                    {session.tutorWhatsapp ? (
+                      <TouchableOpacity
+                        className="flex-1 py-2.5 rounded-xl flex-row items-center justify-center"
+                        style={{ backgroundColor: '#25D36618' }}
+                        onPress={() => openWhatsApp(session.tutorWhatsapp)}
+                        activeOpacity={0.85}
+                      >
+                        <Ionicons name="logo-whatsapp" size={16} color="#128C7E" />
+                        <Text className="text-sm font-semibold ml-2" style={{ color: '#128C7E' }}>Message tutor</Text>
+                      </TouchableOpacity>
+                    ) : null}
+                    <TouchableOpacity
+                      className="flex-1 bg-cardLight py-2.5 rounded-xl"
+                      onPress={() => handleCancelSession(session)}
+                      activeOpacity={0.85}
+                    >
+                      <Text className="text-primary text-center text-sm font-semibold">Cancel</Text>
+                    </TouchableOpacity>
                   </View>
-                  <Ionicons name="chevron-forward" size={20} color="#CCCCCC" />
                 </View>
               ))}
             </View>
@@ -302,22 +442,51 @@ export default function HomeScreen({ navigation }) {
             </TouchableOpacity>
           </View>
 
-          <View className="bg-gradient-to-br from-accent to-primary rounded-2xl p-6 items-center">
-            <Ionicons name="people" size={48} color="#FFFFFF" />
-            <Text className="text-white text-lg font-bold mt-3 mb-2">
-              Find Your Study Crew
-            </Text>
-            <Text className="text-white text-center text-sm opacity-90 mb-4">
-              Join groups in your courses and study smarter together
-            </Text>
-            <TouchableOpacity
-              className="bg-white px-6 py-3 rounded-xl"
-              onPress={() => navigation.navigate('StudentTabs', { screen: 'Groups' })}
-              activeOpacity={0.8}
+          {relevantGroups.length > 0 ? (
+            <View style={{ gap: 10 }}>
+              {relevantGroups.map((group) => (
+                <TouchableOpacity
+                  key={group.id}
+                  className="bg-white rounded-2xl p-4 flex-row items-center border border-gray-100"
+                  onPress={() => openGroupLink(group)}
+                  activeOpacity={0.85}
+                >
+                  <View style={{ width: 48, height: 48, borderRadius: 14, backgroundColor: '#25D36618', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                    <Ionicons name="logo-whatsapp" size={24} color="#25D366" />
+                  </View>
+                  <View className="flex-1 pr-2">
+                    <Text className="text-base font-bold text-primary" numberOfLines={1}>{group.name}</Text>
+                    <Text className="text-textSecondary text-sm" numberOfLines={1}>
+                      {group.course}{group.university ? ` · ${group.university}` : ''}
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={20} color="#CCCCCC" />
+                </TouchableOpacity>
+              ))}
+            </View>
+          ) : (
+            <LinearGradient
+              colors={['#FF3131', '#090F43']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={{ borderRadius: 16, padding: 24, alignItems: 'center' }}
             >
-              <Text className="text-accent font-bold">Browse Groups</Text>
-            </TouchableOpacity>
-          </View>
+              <Ionicons name="people" size={48} color="#FFFFFF" />
+              <Text className="text-white text-lg font-bold mt-3 mb-2">
+                Find Your Study Crew
+              </Text>
+              <Text className="text-white text-center text-sm opacity-90 mb-4">
+                Join groups in your courses and study smarter together
+              </Text>
+              <TouchableOpacity
+                className="bg-white px-6 py-3 rounded-xl"
+                onPress={() => navigation.navigate('StudentTabs', { screen: 'Groups' })}
+                activeOpacity={0.8}
+              >
+                <Text className="text-accent font-bold">Browse Groups</Text>
+              </TouchableOpacity>
+            </LinearGradient>
+          )}
         </View>
 
         {/* Quick Stats */}
@@ -346,7 +515,7 @@ export default function HomeScreen({ navigation }) {
       </ScrollView>
 
       {/* Android tutor rating modal */}
-      <Modal visible={ratingModal.visible} transparent animationType="slide" onRequestClose={() => setRatingModal({ visible: false, sessionId: null, tutorName: '' })}>
+      <Modal visible={ratingModal.visible} transparent animationType="slide" onRequestClose={() => setRatingModal({ visible: false, sessionId: null, tutorId: null, tutorName: '' })}>
         <View className="flex-1 bg-black/40 justify-end">
           <View className="bg-background rounded-t-3xl px-6 pt-5 pb-10">
             <Text className="text-2xl font-bold text-primary mb-1">Rate {ratingModal.tutorName}</Text>

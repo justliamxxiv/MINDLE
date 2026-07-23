@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
-import { auth, db } from '../config/firebaseConfig';
+import { auth } from '../config/firebaseConfig';
+import { friendlyAuthError } from '../utils/authErrors';
 
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
@@ -18,22 +18,10 @@ export default function LoginScreen({ navigation }) {
   const handleLogin = async () => {
     setLoading(true);
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
-      
-      // Check if user has completed their profile
-      const userDoc = await getDoc(doc(db, 'users', user.uid));
-      
-      if (userDoc.exists() && userDoc.data().profileCompleted) {
-        // Profile exists, go to main app
-        navigation.replace('MainApp');
-      } else {
-        // Profile not completed, go to profile setup
-        navigation.replace('ProfileSetup');
-      }
-      
+      await signInWithEmailAndPassword(auth, email, password);
+      // UserContext's auth listener routes to MainApp or ProfileSetup
     } catch (error) {
-      Alert.alert('Login failed', 'The email or password you entered is incorrect. Please try again.');
+      Alert.alert('Login failed', friendlyAuthError(error));
     } finally {
       setLoading(false);
     }
@@ -100,8 +88,8 @@ export default function LoginScreen({ navigation }) {
                   try {
                     await sendPasswordResetEmail(auth, email.trim());
                     Alert.alert('Email sent', 'Check your inbox for the password reset link.');
-                  } catch {
-                    Alert.alert('Could not send email', 'Make sure the email address is correct and try again.');
+                  } catch (error) {
+                    Alert.alert('Could not send email', friendlyAuthError(error));
                   }
                 },
               },

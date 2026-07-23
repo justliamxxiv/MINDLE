@@ -3,7 +3,7 @@ import { View, Text, ScrollView, SafeAreaView, TouchableOpacity, ActivityIndicat
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useUser } from '../context/UserContext';
-import { subscribeTutorSessions, completeSession, SESSION_STATUS } from '../services/sessionService';
+import { subscribeTutorSessions, SESSION_STATUS } from '../services/sessionService';
 
 const FILTERS = ['All', 'Active', 'Completed'];
 const COLORS = ['#FF3131', '#FFB800', '#4CAF50', '#2196F3', '#9C27B0', '#090F43'];
@@ -19,10 +19,17 @@ export default function TutorStudentsScreen() {
       setLoading(false);
       return;
     }
-    const unsub = subscribeTutorSessions(firebaseUser.uid, (data) => {
-      setSessions(data);
-      setLoading(false);
-    });
+    const unsub = subscribeTutorSessions(
+      firebaseUser.uid,
+      (data) => {
+        setSessions(data);
+        setLoading(false);
+      },
+      (error) => {
+        console.error('Sessions listener error:', error);
+        setLoading(false);
+      },
+    );
     return unsub;
   }, [firebaseUser?.uid]);
 

@@ -41,3 +41,7 @@ yarn-error.*
 /android
 temp_auto_push.bat
 temp_interactive_push.bat
+
+# Firebase native config files (contain project credentials)
+GoogleService-Info.plist
+google-services.json

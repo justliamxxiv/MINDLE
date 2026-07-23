@@ -6,6 +6,8 @@ import { signOut } from 'firebase/auth';
 import { doc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebaseConfig';
 import { useUser } from '../context/UserContext';
+import { updateUserWithUniquePhone } from '../services/userService';
+import { normalizePhone } from '../utils/whatsapp';
 
 const NIGERIAN_UNIVERSITIES = [
   'Adeleke University', 'Ahmadu Bello University', 'Babcock University',
@@ -66,6 +68,11 @@ export default function ProfileScreen({ navigation }) {
     if (!editUniversity) { Alert.alert('Error', 'Please select your university'); return; }
     if (!editDepartment.trim()) { Alert.alert('Error', 'Department cannot be empty'); return; }
     if (!editWhatsapp.trim()) { Alert.alert('Error', 'WhatsApp number cannot be empty'); return; }
+    const normalizedPhone = normalizePhone(editWhatsapp);
+    if (normalizedPhone.length < 10 || normalizedPhone.length > 15) {
+      Alert.alert('Error', 'Please enter a valid WhatsApp number');
+      return;
+    }
 
     setSaving(true);
     try {
@@ -75,17 +82,21 @@ export default function ProfileScreen({ navigation }) {
         university: editUniversity,
         department: editDepartment.trim(),
         yearOfStudy: editYear,
-        whatsappNumber: editWhatsapp.trim(),
       };
       if (isTutor) {
         updates.bio = editBio.trim();
         updates.hourlyRate = editRate.trim();
         updates.availability = editAvailability.trim();
       }
-      await updateDoc(doc(db, 'users', user.uid), updates);
+      // Saves profile and claims the WhatsApp number in the unique-phone registry
+      await updateUserWithUniquePhone(user.uid, editWhatsapp, userData?.whatsappNumber, updates);
       await refreshUserData();
       setActiveModal(null);
     } catch (error) {
+      if (error.code === 'phone-taken') {
+        Alert.alert('Number already in use', 'This WhatsApp number is already linked to another account. Please use a different number.');
+        return;
+      }
       console.error('Save profile error:', error);
       Alert.alert('Error', 'Failed to save changes. Please try again.');
     } finally {

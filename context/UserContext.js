@@ -26,6 +26,8 @@ export const UserProvider = ({ children }) => {
     });
 
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
+      // Show spinner while we resolve user data to prevent screen flashes
+      setLoading(true);
       setFirebaseUser(user);
       if (user) {
         try {
