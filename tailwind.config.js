@@ -1,5 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
+  darkMode: 'class',
   content: [
     "./App.{js,jsx,ts,tsx}",
     "./screens/**/*.{js,jsx,ts,tsx}",
@@ -14,7 +15,9 @@ module.exports = {
         background: '#FFFFFF',   // White
         cardLight: '#F5F5F5',    // Light gray
         textPrimary: '#000000',  // Black
-        textSecondary: '#666666' // Gray
+        textSecondary: '#666666', // Gray
+        backgroundDark: '#090F43',
+        cardDark: '#0F1554',
       },
     },
   },

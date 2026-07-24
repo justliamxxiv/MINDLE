@@ -4,8 +4,11 @@ import { StatusBar } from 'expo-status-bar';
 import { signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import { auth } from '../config/firebaseConfig';
 import { friendlyAuthError } from '../utils/authErrors';
+import { useTheme } from '../context/ThemeContext';
+import PasswordInput from '../components/PasswordInput';
 
 export default function LoginScreen({ navigation }) {
+  const { isDark } = useTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -28,21 +31,23 @@ export default function LoginScreen({ navigation }) {
   };
 
   return (
-    <View className="flex-1 bg-background px-8 justify-center">
-      <StatusBar style="dark" />
-      
+    <View className={`flex-1 px-8 justify-center ${isDark ? 'bg-backgroundDark' : 'bg-background'}`}>
+      <StatusBar style={isDark ? 'light' : 'dark'} />
+
       {/* Header */}
       <View className="mb-12">
-        <Text className="text-4xl font-bold text-primary mb-2">Welcome back</Text>
-        <Text className="text-textSecondary text-lg">Log in to continue</Text>
+        <Text className="text-4xl font-bold mb-2" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>Welcome back</Text>
+        <Text className="text-lg" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>Log in to continue</Text>
       </View>
 
       {/* Email Input */}
       <View className="mb-4">
-        <Text className="text-textPrimary mb-2 font-medium">Email</Text>
+        <Text className="mb-2 font-medium" style={{ color: isDark ? '#FFFFFF' : '#000000' }}>Email</Text>
         <TextInput
-          className="bg-cardLight px-4 py-4 rounded-xl text-textPrimary"
+          className={`px-4 py-4 rounded-xl ${isDark ? 'bg-cardDark' : 'bg-cardLight'}`}
+          style={{ color: isDark ? '#FFFFFF' : '#000000' }}
           placeholder="your.email@university.edu"
+          placeholderTextColor="#9CA3AF"
           value={email}
           onChangeText={setEmail}
           onBlur={() => setEmailTouched(true)}
@@ -56,17 +61,13 @@ export default function LoginScreen({ navigation }) {
       </View>
 
       {/* Password Input */}
-      <View className="mb-6">
-        <Text className="text-textPrimary mb-2 font-medium">Password</Text>
-        <TextInput
-          className="bg-cardLight px-4 py-4 rounded-xl text-textPrimary"
-          placeholder="Enter your password"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-          editable={!loading}
-        />
-      </View>
+      <PasswordInput
+        label="Password"
+        placeholder="Enter your password"
+        value={password}
+        onChangeText={setPassword}
+        editable={!loading}
+      />
 
       {/* Forgot Password */}
       <TouchableOpacity
@@ -122,7 +123,7 @@ export default function LoginScreen({ navigation }) {
         className="mt-4"
         disabled={loading}
       >
-        <Text className="text-textSecondary text-center">
+        <Text className="text-center" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>
           Don't have an account?{' '}
           <Text className="text-accent font-semibold">Sign up</Text>
         </Text>

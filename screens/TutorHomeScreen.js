@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../config/firebaseConfig';
 import { useUser } from '../context/UserContext';
+import { useTheme } from '../context/ThemeContext';
 import {
   subscribeTutorSessions, updateSessionStatus, tutorConfirmSession, cancelSession, SESSION_STATUS,
 } from '../services/sessionService';
@@ -14,6 +15,7 @@ const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 export default function TutorHomeScreen({ navigation }) {
   const { userData, firebaseUser, refreshUserData } = useUser();
+  const { isDark } = useTheme();
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isAvailable, setIsAvailable] = useState(userData?.isAvailable ?? true);
   const [activeDays, setActiveDays] = useState(userData?.activeDays ?? ['Mon', 'Wed', 'Fri']);
@@ -172,30 +174,30 @@ export default function TutorHomeScreen({ navigation }) {
   ];
 
   return (
-    <SafeAreaView className="flex-1 bg-background">
-      <StatusBar style="dark" />
+    <SafeAreaView className={`flex-1 ${isDark ? 'bg-backgroundDark' : 'bg-background'}`}>
+      <StatusBar style={isDark ? 'light' : 'dark'} />
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
 
         {/* Header */}
         <View className="px-6 pt-4 pb-6">
           <View className="flex-row justify-between items-start mb-6">
             <View className="flex-1">
-              <Text className="text-textSecondary text-sm mb-1">{getGreeting()}</Text>
-              <Text className="text-4xl font-bold text-primary">{firstName}</Text>
-              <Text className="text-textSecondary text-sm mt-1">{userData?.university || ''}</Text>
+              <Text className="text-sm mb-1" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>{getGreeting()}</Text>
+              <Text className="text-4xl font-bold" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>{firstName}</Text>
+              <Text className="text-sm mt-1" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>{userData?.university || ''}</Text>
             </View>
-            <TouchableOpacity className="bg-cardLight p-3 rounded-full" onPress={() => navigation.navigate('Profile')}>
-              <Ionicons name="person-outline" size={24} color="#090F43" />
+            <TouchableOpacity className={`p-3 rounded-full ${isDark ? 'bg-cardDark' : 'bg-cardLight'}`} onPress={() => navigation.navigate('Profile')}>
+              <Ionicons name="person-outline" size={24} color={isDark ? '#FFFFFF' : '#090F43'} />
             </TouchableOpacity>
           </View>
 
           {/* Stats */}
           <View className="flex-row" style={{ gap: 10 }}>
             {stats.map((stat) => (
-              <View key={stat.label} className="flex-1 bg-white rounded-2xl p-4 border border-gray-100 items-center">
+              <View key={stat.label} className={`flex-1 rounded-2xl p-4 border items-center ${isDark ? 'bg-cardDark border-gray-800' : 'bg-white border-gray-100'}`}>
                 <Ionicons name={stat.icon} size={22} color={stat.color} />
-                <Text className="text-2xl font-bold text-primary mt-1">{stat.value}</Text>
-                <Text className="text-textSecondary text-xs mt-0.5">{stat.label}</Text>
+                <Text className="text-2xl font-bold mt-1" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>{stat.value}</Text>
+                <Text className="text-xs mt-0.5" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>{stat.label}</Text>
               </View>
             ))}
           </View>
@@ -203,11 +205,11 @@ export default function TutorHomeScreen({ navigation }) {
 
         {/* Availability Toggle */}
         <View className="px-6 mb-6">
-          <View className="bg-white rounded-2xl p-5 border border-gray-100">
+          <View className={`rounded-2xl p-5 border ${isDark ? 'bg-cardDark border-gray-800' : 'bg-white border-gray-100'}`}>
             <View className="flex-row items-center justify-between mb-4">
               <View>
-                <Text className="text-base font-bold text-primary">Available for sessions</Text>
-                <Text className="text-textSecondary text-xs mt-0.5">
+                <Text className="text-base font-bold" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>Available for sessions</Text>
+                <Text className="text-xs mt-0.5" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>
                   {isAvailable ? 'Students can request sessions from you' : 'You are currently unavailable'}
                 </Text>
               </View>
@@ -218,7 +220,7 @@ export default function TutorHomeScreen({ navigation }) {
                 thumbColor="#FFFFFF"
               />
             </View>
-            <Text className="text-textSecondary text-xs mb-2 font-medium">AVAILABLE DAYS</Text>
+            <Text className="text-xs mb-2 font-medium" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>AVAILABLE DAYS</Text>
             <View className="flex-row justify-between">
               {DAYS.map((day) => (
                 <TouchableOpacity
@@ -226,11 +228,11 @@ export default function TutorHomeScreen({ navigation }) {
                   onPress={() => toggleDay(day)}
                   style={{
                     width: 38, height: 38, borderRadius: 19,
-                    backgroundColor: activeDays.includes(day) ? '#FF3131' : '#F3F4F6',
+                    backgroundColor: activeDays.includes(day) ? '#FF3131' : (isDark ? '#1A2065' : '#F3F4F6'),
                     alignItems: 'center', justifyContent: 'center',
                   }}
                 >
-                  <Text style={{ fontSize: 11, fontWeight: '600', color: activeDays.includes(day) ? '#FFFFFF' : '#6B7280' }}>
+                  <Text style={{ fontSize: 11, fontWeight: '600', color: activeDays.includes(day) ? '#FFFFFF' : (isDark ? '#9CA3AF' : '#6B7280') }}>
                     {day}
                   </Text>
                 </TouchableOpacity>
@@ -249,38 +251,38 @@ export default function TutorHomeScreen({ navigation }) {
             {pending.length > 0 && (
               <View className="px-6 mb-6">
                 <View className="flex-row items-center mb-4">
-                  <Text className="text-2xl font-bold text-primary flex-1">New Requests</Text>
+                  <Text className="text-2xl font-bold flex-1" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>New Requests</Text>
                   <View className="bg-accent px-2.5 py-1 rounded-full">
                     <Text className="text-white text-xs font-bold">{pending.length}</Text>
                   </View>
                 </View>
                 <View style={{ gap: 10 }}>
                   {pending.map((session) => (
-                    <View key={session.id} className="bg-white rounded-2xl p-4 border border-gray-100">
+                    <View key={session.id} className={`rounded-2xl p-4 border ${isDark ? 'bg-cardDark border-gray-800' : 'bg-white border-gray-100'}`}>
                       <View className="flex-row items-start mb-3">
-                        <View className="w-10 h-10 rounded-xl bg-cardLight items-center justify-center mr-3">
-                          <Text className="text-primary font-bold text-sm">
+                        <View className={`w-10 h-10 rounded-xl items-center justify-center mr-3 ${isDark ? 'bg-cardDark' : 'bg-cardLight'}`}>
+                          <Text className="font-bold text-sm" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>
                             {session.studentName?.split(' ').map((p) => p[0]).join('').slice(0, 2)}
                           </Text>
                         </View>
                         <View className="flex-1">
-                          <Text className="font-bold text-primary">{session.studentName}</Text>
-                          <Text className="text-textSecondary text-sm">{session.course} · {session.type}</Text>
-                          <Text className="text-textSecondary text-xs mt-0.5">{session.date} at {session.time}</Text>
+                          <Text className="font-bold" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>{session.studentName}</Text>
+                          <Text className="text-sm" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>{session.course} · {session.type}</Text>
+                          <Text className="text-xs mt-0.5" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>{session.date} at {session.time}</Text>
                         </View>
                       </View>
                       {session.note ? (
-                        <View className="bg-cardLight rounded-xl p-3 mb-3">
-                          <Text className="text-textSecondary text-sm italic">"{session.note}"</Text>
+                        <View className={`rounded-xl p-3 mb-3 ${isDark ? 'bg-cardDark' : 'bg-cardLight'}`}>
+                          <Text className="text-sm italic" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>"{session.note}"</Text>
                         </View>
                       ) : null}
                       <View className="flex-row" style={{ gap: 10 }}>
                         <TouchableOpacity
-                          className="flex-1 bg-cardLight py-2.5 rounded-xl"
+                          className={`flex-1 py-2.5 rounded-xl ${isDark ? 'bg-cardDark' : 'bg-cardLight'}`}
                           onPress={() => handleDecline(session.id)}
                           activeOpacity={0.8}
                         >
-                          <Text className="text-primary text-center text-sm font-semibold">Decline</Text>
+                          <Text className="text-center text-sm font-semibold" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>Decline</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
                           className="flex-1 bg-accent py-2.5 rounded-xl"
@@ -299,19 +301,19 @@ export default function TutorHomeScreen({ navigation }) {
             {/* Awaiting student confirmation */}
             {awaitingStudent.length > 0 && (
               <View className="px-6 mb-6">
-                <Text className="text-2xl font-bold text-primary mb-4">Awaiting Student Confirmation</Text>
+                <Text className="text-2xl font-bold mb-4" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>Awaiting Student Confirmation</Text>
                 <View style={{ gap: 10 }}>
                   {awaitingStudent.map((session) => (
-                    <View key={session.id} className="bg-white rounded-2xl p-4 border border-gray-100">
+                    <View key={session.id} className={`rounded-2xl p-4 border ${isDark ? 'bg-cardDark border-gray-800' : 'bg-white border-gray-100'}`}>
                       <View className="flex-row items-center">
                         <View style={{ width: 48, height: 48, borderRadius: 14, backgroundColor: '#FFB80018', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
                           <Ionicons name="time" size={22} color="#FFB800" />
                         </View>
                         <View className="flex-1">
-                          <Text className="text-base font-bold text-primary">{session.studentName}</Text>
-                          <Text className="text-textSecondary text-sm">{session.course} · {session.date}</Text>
-                          <View className="bg-yellow-100 self-start px-2 py-0.5 rounded-full mt-1">
-                            <Text className="text-yellow-700 text-xs font-semibold">Waiting for student</Text>
+                          <Text className="text-base font-bold" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>{session.studentName}</Text>
+                          <Text className="text-sm" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>{session.course} · {session.date}</Text>
+                          <View className="self-start px-2 py-0.5 rounded-full mt-1" style={{ backgroundColor: isDark ? '#FFB80030' : '#FEF9C3' }}>
+                            <Text className="text-xs font-semibold" style={{ color: isDark ? '#FDE68A' : '#A16207' }}>Waiting for student</Text>
                           </View>
                         </View>
                       </View>
@@ -323,20 +325,20 @@ export default function TutorHomeScreen({ navigation }) {
 
             {/* Upcoming Sessions */}
             <View className="px-6 mb-8">
-              <Text className="text-2xl font-bold text-primary mb-4">Upcoming Sessions</Text>
+              <Text className="text-2xl font-bold mb-4" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>Upcoming Sessions</Text>
               {upcoming.length > 0 ? (
                 <View style={{ gap: 10 }}>
                   {upcoming.map((session) => (
-                    <View key={session.id} className="bg-white rounded-2xl p-4 border border-gray-100">
+                    <View key={session.id} className={`rounded-2xl p-4 border ${isDark ? 'bg-cardDark border-gray-800' : 'bg-white border-gray-100'}`}>
                       <View className="flex-row items-center mb-3">
                         <View style={{ width: 48, height: 48, borderRadius: 14, backgroundColor: '#FF313118', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
                           <Ionicons name="person" size={22} color="#FF3131" />
                         </View>
                         <View className="flex-1">
-                          <Text className="text-base font-bold text-primary">{session.studentName}</Text>
-                          <Text className="text-textSecondary text-sm">{session.course} · {session.date} at {session.time}</Text>
-                          <View className="bg-green-100 self-start px-2 py-0.5 rounded-full mt-1">
-                            <Text className="text-green-700 text-xs font-semibold">Confirmed</Text>
+                          <Text className="text-base font-bold" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>{session.studentName}</Text>
+                          <Text className="text-sm" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>{session.course} · {session.date} at {session.time}</Text>
+                          <View className="self-start px-2 py-0.5 rounded-full mt-1" style={{ backgroundColor: isDark ? '#4CAF5030' : '#DCFCE7' }}>
+                            <Text className="text-xs font-semibold" style={{ color: isDark ? '#86EFAC' : '#15803D' }}>Confirmed</Text>
                           </View>
                         </View>
                       </View>
@@ -353,11 +355,11 @@ export default function TutorHomeScreen({ navigation }) {
                           </TouchableOpacity>
                         ) : null}
                         <TouchableOpacity
-                          className="flex-1 bg-cardLight py-2.5 rounded-xl"
+                          className={`flex-1 py-2.5 rounded-xl ${isDark ? 'bg-cardDark' : 'bg-cardLight'}`}
                           onPress={() => handleMarkDone(session.id)}
                           activeOpacity={0.8}
                         >
-                          <Text className="text-primary text-center text-sm font-semibold">Mark as done</Text>
+                          <Text className="text-center text-sm font-semibold" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>Mark as done</Text>
                         </TouchableOpacity>
                       </View>
                       <TouchableOpacity
@@ -371,10 +373,10 @@ export default function TutorHomeScreen({ navigation }) {
                   ))}
                 </View>
               ) : (
-                <View className="bg-cardLight p-8 rounded-2xl items-center">
+                <View className={`p-8 rounded-2xl items-center ${isDark ? 'bg-cardDark' : 'bg-cardLight'}`}>
                   <Ionicons name="calendar-outline" size={48} color="#CCCCCC" />
-                  <Text className="text-textSecondary text-center mt-3">No upcoming sessions</Text>
-                  <Text className="text-textSecondary text-xs text-center mt-1">
+                  <Text className="text-center mt-3" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>No upcoming sessions</Text>
+                  <Text className="text-xs text-center mt-1" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>
                     Make sure you're marked as available so students can find you
                   </Text>
                 </View>
@@ -388,27 +390,27 @@ export default function TutorHomeScreen({ navigation }) {
       {/* Android score picker modal */}
       <Modal visible={scoreModal.visible} transparent animationType="slide" onRequestClose={() => setScoreModal({ visible: false, sessionId: null })}>
         <View className="flex-1 bg-black/40 justify-end">
-          <View className="bg-background rounded-t-3xl px-6 pt-5 pb-10">
-            <Text className="text-2xl font-bold text-primary mb-1">Score this student</Text>
-            <Text className="text-textSecondary mb-5">Rate their performance for this session.</Text>
+          <View className={`rounded-t-3xl px-6 pt-5 pb-10 ${isDark ? 'bg-backgroundDark' : 'bg-background'}`}>
+            <Text className="text-2xl font-bold mb-1" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>Score this student</Text>
+            <Text className="mb-5" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>Rate their performance for this session.</Text>
             <View style={{ gap: 10 }}>
               {[5, 4, 3, 2, 1].map((score) => (
                 <TouchableOpacity
                   key={score}
-                  className="bg-cardLight rounded-2xl py-3 px-4 flex-row items-center"
+                  className={`rounded-2xl py-3 px-4 flex-row items-center ${isDark ? 'bg-cardDark' : 'bg-cardLight'}`}
                   onPress={() => handleScoreSubmit(score)}
                   activeOpacity={0.85}
                 >
                   <Text className="text-lg mr-3">{'⭐'.repeat(score)}</Text>
-                  <Text className="text-primary font-semibold">{score} — {['', 'Needs improvement', 'Below average', 'Average', 'Good', 'Excellent'][score]}</Text>
+                  <Text className="font-semibold" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>{score} — {['', 'Needs improvement', 'Below average', 'Average', 'Good', 'Excellent'][score]}</Text>
                 </TouchableOpacity>
               ))}
               <TouchableOpacity
-                className="bg-cardLight rounded-2xl py-3"
+                className={`rounded-2xl py-3 ${isDark ? 'bg-cardDark' : 'bg-cardLight'}`}
                 onPress={() => handleScoreSubmit(null)}
                 activeOpacity={0.85}
               >
-                <Text className="text-textSecondary text-center font-semibold">Skip score</Text>
+                <Text className="text-center font-semibold" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>Skip score</Text>
               </TouchableOpacity>
             </View>
           </View>

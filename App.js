@@ -1,9 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import * as Font from 'expo-font';
 import { View, ActivityIndicator } from 'react-native';
 import { UserProvider, useUser } from './context/UserContext';
+import { ThemeProvider, useTheme } from './context/ThemeContext';
+
+const AppLightTheme = { ...DefaultTheme, colors: { ...DefaultTheme.colors, background: '#FFFFFF' } };
+const AppDarkTheme = {
+  ...DarkTheme,
+  colors: { ...DarkTheme.colors, background: '#090F43', card: '#0F1554', text: '#FFFFFF', border: '#1F2937' },
+};
 
 // Import screens
 import WelcomeScreen from './screens/WelcomeScreen';
@@ -17,10 +24,11 @@ const Stack = createNativeStackNavigator();
 
 function RootNavigator() {
   const { userData, firebaseUser, loading, onboardingSeen } = useUser();
+  const { isDark } = useTheme();
 
   if (loading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FFFFFF' }}>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: isDark ? '#090F43' : '#FFFFFF' }}>
         <ActivityIndicator size="large" color="#FF3131" />
       </View>
     );
@@ -76,10 +84,19 @@ export default function App() {
   }
 
   return (
-    <UserProvider>
-      <NavigationContainer>
-        <RootNavigator />
-      </NavigationContainer>
-    </UserProvider>
+    <ThemeProvider>
+      <UserProvider>
+        <AppNavigation />
+      </UserProvider>
+    </ThemeProvider>
+  );
+}
+
+function AppNavigation() {
+  const { isDark } = useTheme();
+  return (
+    <NavigationContainer theme={isDark ? AppDarkTheme : AppLightTheme}>
+      <RootNavigator />
+    </NavigationContainer>
   );
 }

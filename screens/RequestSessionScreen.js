@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, ScrollView,
-  Alert, ActivityIndicator, SafeAreaView, Platform, ActionSheetIOS,
+  Alert, ActivityIndicator, SafeAreaView,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useUser } from '../context/UserContext';
+import { useTheme } from '../context/ThemeContext';
 import { requestSession } from '../services/sessionService';
+import SearchableSelect from '../components/SearchableSelect';
 
 const SESSION_TYPES = [
   { label: '1-on-1 (Private)', value: '1-on-1' },
@@ -17,11 +19,12 @@ const TIME_SLOTS = [
   '8:00 AM', '9:00 AM', '10:00 AM', '11:00 AM',
   '12:00 PM', '1:00 PM', '2:00 PM', '3:00 PM',
   '4:00 PM', '5:00 PM', '6:00 PM', '7:00 PM', '8:00 PM',
-];
+].map((t) => ({ label: t, value: t }));
 
 export default function RequestSessionScreen({ navigation, route }) {
   const { tutor } = route.params;
   const { userData, firebaseUser } = useUser();
+  const { isDark } = useTheme();
 
   const [course, setCourse] = useState('');
   const [date, setDate] = useState('');
@@ -32,34 +35,6 @@ export default function RequestSessionScreen({ navigation, route }) {
   const [loading, setLoading] = useState(false);
 
   const canSubmit = course.trim() && date.trim() && time && !loading;
-
-  const pickTime = () => {
-    if (Platform.OS === 'ios') {
-      ActionSheetIOS.showActionSheetWithOptions(
-        { options: ['Cancel', ...TIME_SLOTS], cancelButtonIndex: 0 },
-        (index) => { if (index > 0) setTime(TIME_SLOTS[index - 1]); }
-      );
-    } else {
-      Alert.alert('Pick a time', '', [
-        ...TIME_SLOTS.map((t) => ({ text: t, onPress: () => setTime(t) })),
-        { text: 'Cancel', style: 'cancel' },
-      ]);
-    }
-  };
-
-  const pickType = () => {
-    if (Platform.OS === 'ios') {
-      ActionSheetIOS.showActionSheetWithOptions(
-        { options: ['Cancel', ...SESSION_TYPES.map((t) => t.label)], cancelButtonIndex: 0 },
-        (index) => { if (index > 0) setSessionType(SESSION_TYPES[index - 1].value); }
-      );
-    } else {
-      Alert.alert('Session type', '', [
-        ...SESSION_TYPES.map((t) => ({ text: t.label, onPress: () => setSessionType(t.value) })),
-        { text: 'Cancel', style: 'cancel' },
-      ]);
-    }
-  };
 
   const handleSubmit = async () => {
     setLoading(true);
@@ -91,46 +66,46 @@ export default function RequestSessionScreen({ navigation, route }) {
     }
   };
 
-  const typeLabel = SESSION_TYPES.find((t) => t.value === sessionType)?.label || '';
   const initials = tutor.name.split(' ').map((p) => p[0]).join('').slice(0, 2);
 
   return (
-    <SafeAreaView className="flex-1 bg-background">
-      <StatusBar style="dark" />
+    <SafeAreaView className={`flex-1 ${isDark ? 'bg-backgroundDark' : 'bg-background'}`}>
+      <StatusBar style={isDark ? 'light' : 'dark'} />
 
       {/* Header */}
-      <View className="flex-row items-center px-6 pt-4 pb-4 border-b border-gray-100">
+      <View className={`flex-row items-center px-6 pt-4 pb-4 border-b ${isDark ? 'border-gray-800' : 'border-gray-100'}`}>
         <TouchableOpacity onPress={() => navigation.goBack()} className="mr-4">
-          <Ionicons name="arrow-back" size={24} color="#090F43" />
+          <Ionicons name="arrow-back" size={24} color={isDark ? '#FFFFFF' : '#090F43'} />
         </TouchableOpacity>
-        <Text className="text-xl font-bold text-primary flex-1">Request a Session</Text>
+        <Text className="text-xl font-bold flex-1" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>Request a Session</Text>
       </View>
 
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <View className="px-6 pt-6 pb-10" style={{ gap: 20 }}>
 
           {/* Tutor card */}
-          <View className="bg-white rounded-2xl p-4 flex-row items-center border border-gray-100">
+          <View className={`rounded-2xl p-4 flex-row items-center border ${isDark ? 'bg-cardDark border-gray-800' : 'bg-white border-gray-100'}`}>
             <View className="w-12 h-12 rounded-xl items-center justify-center mr-3" style={{ backgroundColor: '#FF313115' }}>
               <Text className="text-accent font-bold text-base">{initials}</Text>
             </View>
             <View className="flex-1">
-              <Text className="font-bold text-primary">{tutor.name}</Text>
-              <Text className="text-textSecondary text-sm">{tutor.department || tutor.university}</Text>
+              <Text className="font-bold" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>{tutor.name}</Text>
+              <Text className="text-sm" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>{tutor.department || tutor.university}</Text>
             </View>
             {tutor.rating > 0 && (
               <View className="flex-row items-center">
                 <Ionicons name="star" size={14} color="#FFB800" />
-                <Text className="text-primary text-sm font-semibold ml-1">{tutor.rating}</Text>
+                <Text className="text-sm font-semibold ml-1" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>{tutor.rating}</Text>
               </View>
             )}
           </View>
 
           {/* Course */}
           <View>
-            <Text className="text-textSecondary text-sm mb-1 font-medium">Course / Subject *</Text>
+            <Text className="text-sm mb-1 font-medium" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>Course / Subject *</Text>
             <TextInput
-              className="bg-cardLight px-4 py-3 rounded-2xl text-primary"
+              className={`px-4 py-3 rounded-2xl ${isDark ? 'bg-cardDark' : 'bg-cardLight'}`}
+              style={{ color: isDark ? '#FFFFFF' : '#090F43' }}
               placeholder="e.g. PHY 212, Calculus, Organic Chemistry"
               placeholderTextColor="#9CA3AF"
               value={course}
@@ -141,9 +116,10 @@ export default function RequestSessionScreen({ navigation, route }) {
 
           {/* Date */}
           <View>
-            <Text className="text-textSecondary text-sm mb-1 font-medium">Preferred Date *</Text>
+            <Text className="text-sm mb-1 font-medium" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>Preferred Date *</Text>
             <TextInput
-              className="bg-cardLight px-4 py-3 rounded-2xl text-primary"
+              className={`px-4 py-3 rounded-2xl ${isDark ? 'bg-cardDark' : 'bg-cardLight'}`}
+              style={{ color: isDark ? '#FFFFFF' : '#090F43' }}
               placeholder="e.g. Monday 19 May, or this weekend"
               placeholderTextColor="#9CA3AF"
               value={date}
@@ -153,39 +129,38 @@ export default function RequestSessionScreen({ navigation, route }) {
           </View>
 
           {/* Time */}
-          <View>
-            <Text className="text-textSecondary text-sm mb-1 font-medium">Preferred Time *</Text>
-            <TouchableOpacity
-              className="bg-cardLight px-4 py-3 rounded-2xl flex-row items-center justify-between"
-              onPress={pickTime}
-              disabled={loading}
-              activeOpacity={0.7}
-            >
-              <Text className={time ? 'text-primary' : 'text-gray-400'}>{time || 'Select a time'}</Text>
-              <Ionicons name="chevron-down" size={16} color="#9CA3AF" />
-            </TouchableOpacity>
-          </View>
+          <SearchableSelect
+            label="Preferred Time *"
+            value={time}
+            placeholder="Select a time"
+            modalTitle="Select Time"
+            searchPlaceholder="Search times..."
+            options={TIME_SLOTS}
+            onChange={setTime}
+            disabled={loading}
+            containerClassName=""
+          />
 
           {/* Session Type */}
-          <View>
-            <Text className="text-textSecondary text-sm mb-1 font-medium">Session Type</Text>
-            <TouchableOpacity
-              className="bg-cardLight px-4 py-3 rounded-2xl flex-row items-center justify-between"
-              onPress={pickType}
-              disabled={loading}
-              activeOpacity={0.7}
-            >
-              <Text className="text-primary">{typeLabel}</Text>
-              <Ionicons name="chevron-down" size={16} color="#9CA3AF" />
-            </TouchableOpacity>
-          </View>
+          <SearchableSelect
+            label="Session Type"
+            value={sessionType}
+            placeholder="Select session type"
+            modalTitle="Select Session Type"
+            searchPlaceholder="Search..."
+            options={SESSION_TYPES}
+            onChange={setSessionType}
+            disabled={loading}
+            containerClassName=""
+          />
 
           {/* Max students — only for group */}
           {sessionType === 'group' && (
             <View>
-              <Text className="text-textSecondary text-sm mb-1 font-medium">Max Students</Text>
+              <Text className="text-sm mb-1 font-medium" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>Max Students</Text>
               <TextInput
-                className="bg-cardLight px-4 py-3 rounded-2xl text-primary"
+                className={`px-4 py-3 rounded-2xl ${isDark ? 'bg-cardDark' : 'bg-cardLight'}`}
+                style={{ color: isDark ? '#FFFFFF' : '#090F43' }}
                 placeholder="e.g. 5"
                 placeholderTextColor="#9CA3AF"
                 value={maxStudents}
@@ -198,9 +173,10 @@ export default function RequestSessionScreen({ navigation, route }) {
 
           {/* Note */}
           <View>
-            <Text className="text-textSecondary text-sm mb-1 font-medium">Note to tutor (optional)</Text>
+            <Text className="text-sm mb-1 font-medium" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>Note to tutor (optional)</Text>
             <TextInput
-              className="bg-cardLight px-4 py-3 rounded-2xl text-primary"
+              className={`px-4 py-3 rounded-2xl ${isDark ? 'bg-cardDark' : 'bg-cardLight'}`}
+              style={{ color: isDark ? '#FFFFFF' : '#090F43' }}
               placeholder="What do you need help with? Any specific topics?"
               placeholderTextColor="#9CA3AF"
               value={note}

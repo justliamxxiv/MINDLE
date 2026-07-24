@@ -5,8 +5,11 @@ import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth, db } from '../config/firebaseConfig';
 import { doc, setDoc } from 'firebase/firestore';
 import { friendlyAuthError } from '../utils/authErrors';
+import { useTheme } from '../context/ThemeContext';
+import PasswordInput from '../components/PasswordInput';
 
 export default function SignupScreen({ navigation }) {
+  const { isDark } = useTheme();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -18,6 +21,7 @@ export default function SignupScreen({ navigation }) {
   const hasUpperCase = /[A-Z]/.test(password);
   const hasNumber = /[0-9]/.test(password);
   const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+  const passwordsMatch = confirmPassword.length > 0 && password === confirmPassword;
 
   const handleSignup = async () => {
     // Validation
@@ -66,14 +70,14 @@ export default function SignupScreen({ navigation }) {
   };
 
   return (
-    <ScrollView className="flex-1 bg-background">
+    <ScrollView className={`flex-1 ${isDark ? 'bg-backgroundDark' : 'bg-background'}`}>
       <View className="px-8 pt-16 pb-8">
-        <StatusBar style="dark" />
-        
+        <StatusBar style={isDark ? 'light' : 'dark'} />
+
         {/* Header */}
         <View className="mb-8">
-          <Text className="text-4xl font-bold text-primary mb-2">Create Account</Text>
-          <Text className="text-textSecondary text-lg">
+          <Text className="text-4xl font-bold mb-2" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>Create Account</Text>
+          <Text className="text-lg" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>
             Join{' '}
             <Text style={{ fontFamily: 'Fredoka-SemiBold', color: '#FF3131' }}>
               mindle
@@ -84,10 +88,12 @@ export default function SignupScreen({ navigation }) {
 
         {/* Name Input */}
         <View className="mb-4">
-          <Text className="text-textPrimary mb-2 font-medium">Full Name</Text>
+          <Text className="mb-2 font-medium" style={{ color: isDark ? '#FFFFFF' : '#000000' }}>Full Name</Text>
           <TextInput
-            className="bg-cardLight px-4 py-4 rounded-xl text-textPrimary"
+            className={`px-4 py-4 rounded-xl ${isDark ? 'bg-cardDark' : 'bg-cardLight'}`}
+            style={{ color: isDark ? '#FFFFFF' : '#000000' }}
             placeholder="John Doe"
+            placeholderTextColor="#9CA3AF"
             value={name}
             onChangeText={setName}
             editable={!loading}
@@ -96,10 +102,12 @@ export default function SignupScreen({ navigation }) {
 
         {/* Email Input */}
         <View className="mb-4">
-          <Text className="text-textPrimary mb-2 font-medium">Email</Text>
+          <Text className="mb-2 font-medium" style={{ color: isDark ? '#FFFFFF' : '#000000' }}>Email</Text>
           <TextInput
-            className="bg-cardLight px-4 py-4 rounded-xl text-textPrimary"
+            className={`px-4 py-4 rounded-xl ${isDark ? 'bg-cardDark' : 'bg-cardLight'}`}
+            style={{ color: isDark ? '#FFFFFF' : '#000000' }}
             placeholder="your.email@university.edu"
+            placeholderTextColor="#9CA3AF"
             value={email}
             onChangeText={setEmail}
             keyboardType="email-address"
@@ -109,57 +117,57 @@ export default function SignupScreen({ navigation }) {
         </View>
 
         {/* Password Input */}
-        <View className="mb-4">
-          <Text className="text-textPrimary mb-2 font-medium">Password</Text>
-          <TextInput
-            className="bg-cardLight px-4 py-4 rounded-xl text-textPrimary"
-            placeholder="Create a strong password"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-            editable={!loading}
-          />
-          
-          {/* Password Requirements */}
-          <View className="mt-3 space-y-2">
-            <View className="flex-row items-center">
-              <View className={`w-3 h-3 rounded-full mr-2 ${hasMinLength ? 'bg-success' : 'bg-gray-300'}`} />
-              <Text className={`text-sm ${hasMinLength ? 'text-success' : 'text-textSecondary'}`}>
-                At least 8 characters
-              </Text>
-            </View>
-            <View className="flex-row items-center">
-              <View className={`w-3 h-3 rounded-full mr-2 ${hasUpperCase ? 'bg-success' : 'bg-gray-300'}`} />
-              <Text className={`text-sm ${hasUpperCase ? 'text-success' : 'text-textSecondary'}`}>
-                One uppercase letter
-              </Text>
-            </View>
-            <View className="flex-row items-center">
-              <View className={`w-3 h-3 rounded-full mr-2 ${hasNumber ? 'bg-success' : 'bg-gray-300'}`} />
-              <Text className={`text-sm ${hasNumber ? 'text-success' : 'text-textSecondary'}`}>
-                One number
-              </Text>
-            </View>
-            <View className="flex-row items-center">
-              <View className={`w-3 h-3 rounded-full mr-2 ${hasSpecialChar ? 'bg-success' : 'bg-gray-300'}`} />
-              <Text className={`text-sm ${hasSpecialChar ? 'text-success' : 'text-textSecondary'}`}>
-                One special character (!@#$%^&*)
-              </Text>
-            </View>
-          </View>
-        </View>
+        <PasswordInput
+          label="Password"
+          placeholder="Create a strong password"
+          value={password}
+          onChangeText={setPassword}
+          editable={!loading}
+          containerClassName="mb-4"
+        />
 
         {/* Confirm Password Input */}
-        <View className="mb-6">
-          <Text className="text-textPrimary mb-2 font-medium">Confirm Password</Text>
-          <TextInput
-            className="bg-cardLight px-4 py-4 rounded-xl text-textPrimary"
-            placeholder="Re-enter your password"
-            value={confirmPassword}
-            onChangeText={setConfirmPassword}
-            secureTextEntry
-            editable={!loading}
-          />
+        <PasswordInput
+          label="Confirm Password"
+          placeholder="Re-enter your password"
+          value={confirmPassword}
+          onChangeText={setConfirmPassword}
+          editable={!loading}
+          containerClassName="mb-2"
+        />
+
+        {/* Password Requirements */}
+        <View className="mb-6 space-y-2">
+          <View className="flex-row items-center">
+            <View className={`w-3 h-3 rounded-full mr-2 ${hasMinLength ? 'bg-success' : 'bg-gray-300'}`} />
+            <Text className="text-sm" style={{ color: hasMinLength ? '#4CAF50' : isDark ? '#9CA3AF' : '#666666' }}>
+              At least 8 characters
+            </Text>
+          </View>
+          <View className="flex-row items-center">
+            <View className={`w-3 h-3 rounded-full mr-2 ${hasUpperCase ? 'bg-success' : 'bg-gray-300'}`} />
+            <Text className="text-sm" style={{ color: hasUpperCase ? '#4CAF50' : isDark ? '#9CA3AF' : '#666666' }}>
+              One uppercase letter
+            </Text>
+          </View>
+          <View className="flex-row items-center">
+            <View className={`w-3 h-3 rounded-full mr-2 ${hasNumber ? 'bg-success' : 'bg-gray-300'}`} />
+            <Text className="text-sm" style={{ color: hasNumber ? '#4CAF50' : isDark ? '#9CA3AF' : '#666666' }}>
+              One number
+            </Text>
+          </View>
+          <View className="flex-row items-center">
+            <View className={`w-3 h-3 rounded-full mr-2 ${hasSpecialChar ? 'bg-success' : 'bg-gray-300'}`} />
+            <Text className="text-sm" style={{ color: hasSpecialChar ? '#4CAF50' : isDark ? '#9CA3AF' : '#666666' }}>
+              One special character (!@#$%^&*)
+            </Text>
+          </View>
+          <View className="flex-row items-center">
+            <View className={`w-3 h-3 rounded-full mr-2 ${passwordsMatch ? 'bg-success' : 'bg-gray-300'}`} />
+            <Text className="text-sm" style={{ color: passwordsMatch ? '#4CAF50' : isDark ? '#9CA3AF' : '#666666' }}>
+              Passwords match
+            </Text>
+          </View>
         </View>
 
         {/* Sign Up Button */}
@@ -183,7 +191,7 @@ export default function SignupScreen({ navigation }) {
           className="mt-4"
           disabled={loading}
         >
-          <Text className="text-textSecondary text-center">
+          <Text className="text-center" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>
             Already have an account?{' '}
             <Text className="text-accent font-semibold">Log in</Text>
           </Text>

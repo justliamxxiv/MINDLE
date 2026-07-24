@@ -3,7 +3,9 @@ import { View, Text, ScrollView, SafeAreaView, TouchableOpacity, Dimensions, Ale
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import { useUser } from '../context/UserContext';
+import { useTheme } from '../context/ThemeContext';
 import {
   subscribeStudentSessions, studentConfirmSession, cancelSession, dismissSession, SESSION_STATUS,
 } from '../services/sessionService';
@@ -16,6 +18,7 @@ const SESSION_COLORS = ['#FF3131', '#FFB800', '#4CAF50', '#2196F3', '#9C27B0', '
 
 export default function HomeScreen({ navigation }) {
   const { userData, firebaseUser } = useUser();
+  const { isDark } = useTheme();
   const [currentTime, setCurrentTime] = useState(new Date());
   const [sessions, setSessions] = useState([]);
   const [groups, setGroups] = useState([]);
@@ -191,29 +194,29 @@ export default function HomeScreen({ navigation }) {
     : '—';
 
   return (
-    <SafeAreaView className="flex-1 bg-background">
-      <StatusBar style="dark" />
+    <SafeAreaView className={`flex-1 ${isDark ? 'bg-backgroundDark' : 'bg-background'}`}>
+      <StatusBar style={isDark ? 'light' : 'dark'} />
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-        
+
         {/* Header Section */}
         <View className="px-6 pt-4 pb-6">
           <View className="flex-row justify-between items-start mb-6">
             <View className="flex-1">
-              <Text className="text-textSecondary text-sm mb-1">
+              <Text className="text-sm mb-1" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>
                 {getGreeting()}
               </Text>
               <View className="flex-row items-center">
-                <Text className="text-4xl font-bold text-primary mr-2">
+                <Text className="text-4xl font-bold mr-2" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>
                   {firstName}
                 </Text>
               </View>
             </View>
-            
-            <TouchableOpacity 
-              className="bg-cardLight p-3 rounded-full"
+
+            <TouchableOpacity
+              className={`p-3 rounded-full ${isDark ? 'bg-cardDark' : 'bg-cardLight'}`}
               onPress={() => navigation.navigate('Profile')}
             >
-              <Ionicons name="person-outline" size={24} color="#090F43" />
+              <Ionicons name="person-outline" size={24} color={isDark ? '#FFFFFF' : '#090F43'} />
             </TouchableOpacity>
           </View>
 
@@ -225,7 +228,7 @@ export default function HomeScreen({ navigation }) {
               <Text className="text-white text-sm opacity-90">Day Streak</Text>
             </View>
 
-            <View className="flex-1 bg-primary p-4 rounded-2xl">
+            <View className={`flex-1 p-4 rounded-2xl ${isDark ? 'bg-cardDark' : 'bg-primary'}`}>
               <Ionicons name="trending-up" size={28} color="#FFFFFF" />
               <Text className="text-white text-3xl font-bold mt-2">{avgScore}</Text>
               <Text className="text-white text-sm opacity-90">Avg Score</Text>
@@ -236,7 +239,7 @@ export default function HomeScreen({ navigation }) {
         {/* Tutor Progress Section */}
         <View className="px-6 mb-6">
           <View className="flex-row justify-between items-center mb-4">
-            <Text className="text-2xl font-bold text-primary">Your Progress</Text>
+            <Text className="text-2xl font-bold" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>Your Progress</Text>
             <TouchableOpacity onPress={() => navigation.navigate('StudentTabs', { screen: 'Tutors' })}>
               <Text className="text-accent font-semibold">View All</Text>
             </TouchableOpacity>
@@ -247,26 +250,26 @@ export default function HomeScreen({ navigation }) {
               {tutorProgress.map((item) => (
                 <View
                   key={item.id}
-                  className="bg-white rounded-2xl p-4 border border-gray-100"
+                  className={`rounded-2xl p-4 border ${isDark ? 'bg-cardDark border-gray-800' : 'bg-white border-gray-100'}`}
                 >
                   <View className="flex-row justify-between items-start mb-3">
                     <View className="flex-1">
-                      <Text className="text-lg font-bold text-primary mb-1">
+                      <Text className="text-lg font-bold mb-1" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>
                         {item.course}
                       </Text>
-                      <Text className="text-textSecondary text-sm">
+                      <Text className="text-sm" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>
                         with {item.tutor}
                       </Text>
                     </View>
-                    <View className="bg-cardLight px-3 py-1 rounded-full">
-                      <Text className="text-textPrimary text-xs font-semibold">
+                    <View className={`px-3 py-1 rounded-full ${isDark ? 'bg-cardDark' : 'bg-cardLight'}`}>
+                      <Text className="text-xs font-semibold" style={{ color: isDark ? '#FFFFFF' : '#000000' }}>
                         {item.sessions} sessions
                       </Text>
                     </View>
                   </View>
 
                   <View className="flex-row items-center">
-                    <View className="h-2 rounded-full flex-1 bg-gray-100 mr-3">
+                    <View className={`h-2 rounded-full flex-1 mr-3 ${isDark ? 'bg-gray-800' : 'bg-gray-100'}`}>
                       <View className="h-2 rounded-full w-full" style={{ backgroundColor: item.color, opacity: 0.3 }} />
                     </View>
                     <Text className="text-xs font-semibold" style={{ color: item.color }}>In progress</Text>
@@ -275,9 +278,9 @@ export default function HomeScreen({ navigation }) {
               ))}
             </View>
           ) : (
-            <View className="bg-cardLight p-8 rounded-2xl items-center">
+            <View className={`p-8 rounded-2xl items-center ${isDark ? 'bg-cardDark' : 'bg-cardLight'}`}>
               <Ionicons name="school-outline" size={48} color="#CCCCCC" />
-              <Text className="text-textSecondary text-center mt-3">
+              <Text className="text-center mt-3" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>
                 Start learning with a tutor to track your progress
               </Text>
             </View>
@@ -287,18 +290,18 @@ export default function HomeScreen({ navigation }) {
         {/* Needs confirmation */}
         {needsConfirmation.length > 0 && (
           <View className="px-6 mb-6">
-            <Text className="text-2xl font-bold text-primary mb-4">Confirm Your Sessions</Text>
+            <Text className="text-2xl font-bold mb-4" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>Confirm Your Sessions</Text>
             <View style={{ gap: 10 }}>
               {needsConfirmation.map((session) => (
-                <View key={session.id} className="bg-white rounded-2xl p-4 border border-gray-100">
+                <View key={session.id} className={`rounded-2xl p-4 border ${isDark ? 'bg-cardDark border-gray-800' : 'bg-white border-gray-100'}`}>
                   <View className="flex-row items-center mb-3">
                     <View style={{ width: 48, height: 48, borderRadius: 14, backgroundColor: '#FFB80018', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
                       <Ionicons name="checkmark-circle-outline" size={24} color="#FFB800" />
                     </View>
                     <View className="flex-1">
-                      <Text className="text-base font-bold text-primary">{session.course}</Text>
-                      <Text className="text-textSecondary text-sm">with {session.tutorName} · {session.date}</Text>
-                      <Text className="text-yellow-600 text-xs mt-0.5">Tutor marked this as done</Text>
+                      <Text className="text-base font-bold" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>{session.course}</Text>
+                      <Text className="text-sm" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>with {session.tutorName} · {session.date}</Text>
+                      <Text className="text-xs mt-0.5" style={{ color: isDark ? '#FBBF24' : '#CA8A04' }}>Tutor marked this as done</Text>
                     </View>
                   </View>
                   <TouchableOpacity
@@ -317,28 +320,28 @@ export default function HomeScreen({ navigation }) {
         {/* Your Requests — pending, declined, and cancelled session requests */}
         {(pendingRequests.length > 0 || closedRequests.length > 0) && (
           <View className="px-6 mb-6">
-            <Text className="text-2xl font-bold text-primary mb-4">Your Requests</Text>
+            <Text className="text-2xl font-bold mb-4" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>Your Requests</Text>
             <View style={{ gap: 10 }}>
               {pendingRequests.map((session) => (
-                <View key={session.id} className="bg-white rounded-2xl p-4 border border-gray-100">
+                <View key={session.id} className={`rounded-2xl p-4 border ${isDark ? 'bg-cardDark border-gray-800' : 'bg-white border-gray-100'}`}>
                   <View className="flex-row items-center mb-3">
                     <View style={{ width: 48, height: 48, borderRadius: 14, backgroundColor: '#2196F318', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
                       <Ionicons name="hourglass-outline" size={22} color="#2196F3" />
                     </View>
                     <View className="flex-1">
-                      <Text className="text-base font-bold text-primary">{session.course}</Text>
-                      <Text className="text-textSecondary text-sm">to {session.tutorName} · {session.date} at {session.time}</Text>
-                      <View className="bg-blue-100 self-start px-2 py-0.5 rounded-full mt-1">
-                        <Text className="text-blue-700 text-xs font-semibold">Waiting for tutor</Text>
+                      <Text className="text-base font-bold" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>{session.course}</Text>
+                      <Text className="text-sm" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>to {session.tutorName} · {session.date} at {session.time}</Text>
+                      <View className="self-start px-2 py-0.5 rounded-full mt-1" style={{ backgroundColor: isDark ? '#2196F330' : '#DBEAFE' }}>
+                        <Text className="text-xs font-semibold" style={{ color: isDark ? '#93C5FD' : '#1D4ED8' }}>Waiting for tutor</Text>
                       </View>
                     </View>
                   </View>
                   <TouchableOpacity
-                    className="bg-cardLight py-2.5 rounded-xl"
+                    className={`py-2.5 rounded-xl ${isDark ? 'bg-cardDark' : 'bg-cardLight'}`}
                     onPress={() => handleCancelSession(session)}
                     activeOpacity={0.85}
                   >
-                    <Text className="text-primary text-center text-sm font-semibold">Cancel request</Text>
+                    <Text className="text-center text-sm font-semibold" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>Cancel request</Text>
                   </TouchableOpacity>
                 </View>
               ))}
@@ -348,23 +351,23 @@ export default function HomeScreen({ navigation }) {
                   ? 'Declined by tutor'
                   : session.cancelledBy === 'tutor' ? 'Cancelled by tutor' : 'Cancelled';
                 return (
-                  <View key={session.id} className="bg-white rounded-2xl p-4 border border-gray-100 flex-row items-center">
+                  <View key={session.id} className={`rounded-2xl p-4 border flex-row items-center ${isDark ? 'bg-cardDark border-gray-800' : 'bg-white border-gray-100'}`}>
                     <View style={{ width: 48, height: 48, borderRadius: 14, backgroundColor: '#9CA3AF18', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
                       <Ionicons name="close-circle-outline" size={22} color="#9CA3AF" />
                     </View>
                     <View className="flex-1">
-                      <Text className="text-base font-bold text-primary">{session.course}</Text>
-                      <Text className="text-textSecondary text-sm">with {session.tutorName}</Text>
-                      <View className="bg-gray-100 self-start px-2 py-0.5 rounded-full mt-1">
-                        <Text className="text-gray-500 text-xs font-semibold">{label}</Text>
+                      <Text className="text-base font-bold" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>{session.course}</Text>
+                      <Text className="text-sm" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>with {session.tutorName}</Text>
+                      <View className="self-start px-2 py-0.5 rounded-full mt-1" style={{ backgroundColor: isDark ? '#374151' : '#F3F4F6' }}>
+                        <Text className="text-xs font-semibold" style={{ color: isDark ? '#D1D5DB' : '#6B7280' }}>{label}</Text>
                       </View>
                     </View>
                     <TouchableOpacity
-                      className="w-8 h-8 rounded-full bg-cardLight items-center justify-center"
+                      className={`w-8 h-8 rounded-full items-center justify-center ${isDark ? 'bg-cardDark' : 'bg-cardLight'}`}
                       onPress={() => dismissSession(session.id).catch(() => {})}
                       activeOpacity={0.7}
                     >
-                      <Ionicons name="close" size={16} color="#666666" />
+                      <Ionicons name="close" size={16} color={isDark ? '#9CA3AF' : '#666666'} />
                     </TouchableOpacity>
                   </View>
                 );
@@ -376,7 +379,7 @@ export default function HomeScreen({ navigation }) {
         {/* Upcoming Sessions */}
         <View className="px-6 mb-6">
           <View className="flex-row justify-between items-center mb-4">
-            <Text className="text-2xl font-bold text-primary">Today's Sessions</Text>
+            <Text className="text-2xl font-bold" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>Today's Sessions</Text>
           </View>
 
           {upcomingSessions.length > 0 ? (
@@ -384,7 +387,7 @@ export default function HomeScreen({ navigation }) {
               {upcomingSessions.map((session, i) => (
                 <View
                   key={session.id}
-                  className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100"
+                  className={`rounded-2xl p-4 shadow-sm border ${isDark ? 'bg-cardDark border-gray-800' : 'bg-white border-gray-100'}`}
                 >
                   <View className="flex-row items-center mb-3">
                     <View
@@ -394,8 +397,8 @@ export default function HomeScreen({ navigation }) {
                       <Ionicons name="time" size={24} color={SESSION_COLORS[i % SESSION_COLORS.length]} />
                     </View>
                     <View className="flex-1">
-                      <Text className="text-base font-bold text-primary mb-1">{session.course}</Text>
-                      <Text className="text-textSecondary text-sm">
+                      <Text className="text-base font-bold mb-1" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>{session.course}</Text>
+                      <Text className="text-sm" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>
                         {session.time} · {session.date} · {session.tutorName}
                       </Text>
                     </View>
@@ -413,19 +416,19 @@ export default function HomeScreen({ navigation }) {
                       </TouchableOpacity>
                     ) : null}
                     <TouchableOpacity
-                      className="flex-1 bg-cardLight py-2.5 rounded-xl"
+                      className={`flex-1 py-2.5 rounded-xl ${isDark ? 'bg-cardDark' : 'bg-cardLight'}`}
                       onPress={() => handleCancelSession(session)}
                       activeOpacity={0.85}
                     >
-                      <Text className="text-primary text-center text-sm font-semibold">Cancel</Text>
+                      <Text className="text-center text-sm font-semibold" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>Cancel</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
               ))}
             </View>
           ) : (
-            <View className="bg-cardLight p-6 rounded-2xl items-center">
-              <Text className="text-textSecondary text-center">No upcoming sessions</Text>
+            <View className={`p-6 rounded-2xl items-center ${isDark ? 'bg-cardDark' : 'bg-cardLight'}`}>
+              <Text className="text-center" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>No upcoming sessions</Text>
               <TouchableOpacity onPress={() => navigation.navigate('StudentTabs', { screen: 'Tutors' })} className="mt-2">
                 <Text className="text-accent font-semibold text-sm">Find a tutor →</Text>
               </TouchableOpacity>
@@ -436,7 +439,7 @@ export default function HomeScreen({ navigation }) {
         {/* Study Groups Section */}
         <View className="px-6 mb-6">
           <View className="flex-row justify-between items-center mb-4">
-            <Text className="text-2xl font-bold text-primary">Study Groups</Text>
+            <Text className="text-2xl font-bold" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>Study Groups</Text>
             <TouchableOpacity onPress={() => navigation.navigate('StudentTabs', { screen: 'Groups' })}>
               <Text className="text-accent font-semibold">Explore</Text>
             </TouchableOpacity>
@@ -447,7 +450,7 @@ export default function HomeScreen({ navigation }) {
               {relevantGroups.map((group) => (
                 <TouchableOpacity
                   key={group.id}
-                  className="bg-white rounded-2xl p-4 flex-row items-center border border-gray-100"
+                  className={`rounded-2xl p-4 flex-row items-center border ${isDark ? 'bg-cardDark border-gray-800' : 'bg-white border-gray-100'}`}
                   onPress={() => openGroupLink(group)}
                   activeOpacity={0.85}
                 >
@@ -455,8 +458,8 @@ export default function HomeScreen({ navigation }) {
                     <Ionicons name="logo-whatsapp" size={24} color="#25D366" />
                   </View>
                   <View className="flex-1 pr-2">
-                    <Text className="text-base font-bold text-primary" numberOfLines={1}>{group.name}</Text>
-                    <Text className="text-textSecondary text-sm" numberOfLines={1}>
+                    <Text className="text-base font-bold" style={{ color: isDark ? '#FFFFFF' : '#090F43' }} numberOfLines={1}>{group.name}</Text>
+                    <Text className="text-sm" style={{ color: isDark ? '#9CA3AF' : '#666666' }} numberOfLines={1}>
                       {group.course}{group.university ? ` · ${group.university}` : ''}
                     </Text>
                   </View>
@@ -466,47 +469,76 @@ export default function HomeScreen({ navigation }) {
             </View>
           ) : (
             <LinearGradient
-              colors={['#FF3131', '#090F43']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={{ borderRadius: 16, padding: 24, alignItems: 'center' }}
+              colors={['#FFC93C', '#FF6B4A', '#E0326B', '#6C2BD9', '#090F43']}
+              locations={[0, 0.3, 0.55, 0.8, 1]}
+              start={{ x: 0, y: 1 }}
+              end={{ x: 1, y: 0 }}
+              style={{ borderRadius: 16, padding: 16, overflow: 'hidden' }}
             >
-              <Ionicons name="people" size={48} color="#FFFFFF" />
-              <Text className="text-white text-lg font-bold mt-3 mb-2">
-                Find Your Study Crew
-              </Text>
-              <Text className="text-white text-center text-sm opacity-90 mb-4">
-                Join groups in your courses and study smarter together
-              </Text>
-              <TouchableOpacity
-                className="bg-white px-6 py-3 rounded-xl"
-                onPress={() => navigation.navigate('StudentTabs', { screen: 'Groups' })}
-                activeOpacity={0.8}
+              {/* Decorative blobs */}
+              <View style={{ position: 'absolute', width: 130, height: 130, borderRadius: 65, backgroundColor: 'rgba(255,255,255,0.15)', top: -40, left: -30 }} />
+              <View style={{ position: 'absolute', width: 90, height: 90, borderRadius: 45, backgroundColor: 'rgba(255,255,255,0.12)', bottom: -25, right: 10 }} />
+              <View style={{ position: 'absolute', width: 60, height: 60, borderRadius: 30, backgroundColor: 'rgba(255,255,255,0.18)', top: 10, right: -15 }} />
+              <View style={{ position: 'absolute', width: 45, height: 45, borderRadius: 23, backgroundColor: 'rgba(255,255,255,0.15)', bottom: 15, left: 25 }} />
+              <View style={{ position: 'absolute', width: 150, height: 150, borderRadius: 75, backgroundColor: 'rgba(9,15,67,0.45)', top: -60, right: -60 }} />
+
+              <BlurView
+                intensity={40}
+                tint="light"
+                style={{
+                  borderRadius: 20,
+                  padding: 24,
+                  alignItems: 'center',
+                  overflow: 'hidden',
+                  borderWidth: 1,
+                  borderColor: 'rgba(255,255,255,0.35)',
+                  backgroundColor: 'rgba(255,255,255,0.08)',
+                }}
               >
-                <Text className="text-accent font-bold">Browse Groups</Text>
-              </TouchableOpacity>
+                <Ionicons name="people" size={48} color="#FFFFFF" />
+                <Text className="text-white text-lg font-bold mt-3 mb-2">
+                  Find Your Study Crew
+                </Text>
+                <Text className="text-white text-center text-sm opacity-90 mb-4">
+                  Join groups in your courses and study smarter together
+                </Text>
+                <TouchableOpacity
+                  style={{
+                    backgroundColor: 'rgba(255,255,255,0.25)',
+                    borderWidth: 1,
+                    borderColor: 'rgba(255,255,255,0.5)',
+                    paddingHorizontal: 24,
+                    paddingVertical: 12,
+                    borderRadius: 12,
+                  }}
+                  onPress={() => navigation.navigate('StudentTabs', { screen: 'Groups' })}
+                  activeOpacity={0.8}
+                >
+                  <Text className="text-white font-bold">Browse Groups</Text>
+                </TouchableOpacity>
+              </BlurView>
             </LinearGradient>
           )}
         </View>
 
         {/* Quick Stats */}
         <View className="px-6 pb-8">
-          <Text className="text-2xl font-bold text-primary mb-4">Quick Stats</Text>
-          <View className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+          <Text className="text-2xl font-bold mb-4" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>Quick Stats</Text>
+          <View className={`rounded-2xl p-5 shadow-sm border ${isDark ? 'bg-cardDark border-gray-800' : 'bg-white border-gray-100'}`}>
             <View className="flex-row justify-between items-center mb-4">
               <View className="items-center flex-1">
-                <Text className="text-2xl font-bold text-primary">{Object.keys(activeSessionTutorMap).length}</Text>
-                <Text className="text-textSecondary text-xs mt-1">Tutors</Text>
+                <Text className="text-2xl font-bold" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>{Object.keys(activeSessionTutorMap).length}</Text>
+                <Text className="text-xs mt-1" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>Tutors</Text>
               </View>
-              <View className="w-px h-10 bg-gray-200" />
+              <View className={`w-px h-10 ${isDark ? 'bg-gray-700' : 'bg-gray-200'}`} />
               <View className="items-center flex-1">
-                <Text className="text-2xl font-bold text-primary">{upcomingSessions.length}</Text>
-                <Text className="text-textSecondary text-xs mt-1">Upcoming</Text>
+                <Text className="text-2xl font-bold" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>{upcomingSessions.length}</Text>
+                <Text className="text-xs mt-1" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>Upcoming</Text>
               </View>
-              <View className="w-px h-10 bg-gray-200" />
+              <View className={`w-px h-10 ${isDark ? 'bg-gray-700' : 'bg-gray-200'}`} />
               <View className="items-center flex-1">
-                <Text className="text-2xl font-bold text-primary">{completedSessions.length}</Text>
-                <Text className="text-textSecondary text-xs mt-1">Completed</Text>
+                <Text className="text-2xl font-bold" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>{completedSessions.length}</Text>
+                <Text className="text-xs mt-1" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>Completed</Text>
               </View>
             </View>
           </View>
@@ -517,27 +549,27 @@ export default function HomeScreen({ navigation }) {
       {/* Android tutor rating modal */}
       <Modal visible={ratingModal.visible} transparent animationType="slide" onRequestClose={() => setRatingModal({ visible: false, sessionId: null, tutorId: null, tutorName: '' })}>
         <View className="flex-1 bg-black/40 justify-end">
-          <View className="bg-background rounded-t-3xl px-6 pt-5 pb-10">
-            <Text className="text-2xl font-bold text-primary mb-1">Rate {ratingModal.tutorName}</Text>
-            <Text className="text-textSecondary mb-5">How would you rate this session?</Text>
+          <View className={`rounded-t-3xl px-6 pt-5 pb-10 ${isDark ? 'bg-backgroundDark' : 'bg-background'}`}>
+            <Text className="text-2xl font-bold mb-1" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>Rate {ratingModal.tutorName}</Text>
+            <Text className="mb-5" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>How would you rate this session?</Text>
             <View style={{ gap: 10 }}>
               {[5, 4, 3, 2, 1].map((rating) => (
                 <TouchableOpacity
                   key={rating}
-                  className="bg-cardLight rounded-2xl py-3 px-4 flex-row items-center"
+                  className={`rounded-2xl py-3 px-4 flex-row items-center ${isDark ? 'bg-cardDark' : 'bg-cardLight'}`}
                   onPress={() => handleRatingSubmit(rating)}
                   activeOpacity={0.85}
                 >
                   <Text className="text-lg mr-3">{'⭐'.repeat(rating)}</Text>
-                  <Text className="text-primary font-semibold">{rating} — {['', 'Poor', 'Fair', 'Good', 'Great', 'Excellent'][rating]}</Text>
+                  <Text className="font-semibold" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>{rating} — {['', 'Poor', 'Fair', 'Good', 'Great', 'Excellent'][rating]}</Text>
                 </TouchableOpacity>
               ))}
               <TouchableOpacity
-                className="bg-cardLight rounded-2xl py-3"
+                className={`rounded-2xl py-3 ${isDark ? 'bg-cardDark' : 'bg-cardLight'}`}
                 onPress={() => handleRatingSubmit(null)}
                 activeOpacity={0.85}
               >
-                <Text className="text-textSecondary text-center font-semibold">Skip rating</Text>
+                <Text className="text-center font-semibold" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>Skip rating</Text>
               </TouchableOpacity>
             </View>
           </View>

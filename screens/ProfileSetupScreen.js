@@ -1,32 +1,18 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Platform, ActionSheetIOS } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { Ionicons } from '@expo/vector-icons';
 import { auth } from '../config/firebaseConfig';
 import { useUser } from '../context/UserContext';
+import { useTheme } from '../context/ThemeContext';
 import { updateUserWithUniquePhone } from '../services/userService';
 import { normalizePhone } from '../utils/whatsapp';
-
-const NIGERIAN_UNIVERSITIES = [
-  'Adeleke University',
-  'Ahmadu Bello University',
-  'Babcock University',
-  'Covenant University',
-  'Federal University of Technology, Akure',
-  'Federal University of Technology, Minna',
-  'Lagos State University',
-  'Obafemi Awolowo University',
-  'University of Benin',
-  'University of Ibadan',
-  'University of Ilorin',
-  'University of Jos',
-  'University of Lagos',
-  'University of Nigeria, Nsukka',
-  'University of Port Harcourt',
-].sort();
+import { UNIVERSITIES, COURSES, YEAR_OF_STUDY_OPTIONS } from '../utils/academicOptions';
+import SearchableSelect from '../components/SearchableSelect';
+import PhoneInput from '../components/PhoneInput';
 
 export default function ProfileSetupScreen({ navigation, route }) {
   const { refreshUserData, userData } = useUser();
+  const { isDark } = useTheme();
   // Route params are lost when RootNavigator swaps stacks after signup,
   // so fall back to the Firestore doc saved at signup (via context)
   const userName = route?.params?.userName || userData?.name || '';
@@ -136,25 +122,25 @@ export default function ProfileSetupScreen({ navigation, route }) {
   };
 
   return (
-    <ScrollView className="flex-1 bg-background">
+    <ScrollView className={`flex-1 ${isDark ? 'bg-backgroundDark' : 'bg-background'}`}>
       <View className="px-8 pt-16 pb-8">
-        <StatusBar style="dark" />
-        
+        <StatusBar style={isDark ? 'light' : 'dark'} />
+
         {/* Header */}
         <View className="mb-8">
-          <Text className="text-4xl font-bold text-primary mb-2">Complete Your Profile</Text>
-          <Text className="text-textSecondary text-lg">
+          <Text className="text-4xl font-bold mb-2" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>Complete Your Profile</Text>
+          <Text className="text-lg" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>
             Help us personalize your experience
           </Text>
         </View>
 
         {/* Account Type Selection - MOVED TO TOP */}
         <View className="mb-8">
-          <Text className="text-textPrimary mb-3 font-medium text-lg">I want to:</Text>
-          
+          <Text className="mb-3 font-medium text-lg" style={{ color: isDark ? '#FFFFFF' : '#000000' }}>I want to:</Text>
+
           <TouchableOpacity
             className={`flex-row items-center p-4 rounded-xl mb-3 border-2 ${
-              accountType === 'student' ? 'bg-accent border-accent' : 'bg-cardLight border-gray-300'
+              accountType === 'student' ? 'bg-accent border-accent' : isDark ? 'bg-primary border-gray-700' : 'bg-cardLight border-gray-300'
             }`}
             onPress={() => setAccountType('student')}
             disabled={loading}
@@ -167,10 +153,10 @@ export default function ProfileSetupScreen({ navigation, route }) {
               )}
             </View>
             <View>
-              <Text className={`font-semibold ${accountType === 'student' ? 'text-white' : 'text-textPrimary'}`}>
+              <Text className="font-semibold" style={{ color: accountType === 'student' ? '#FFFFFF' : isDark ? '#FFFFFF' : '#000000' }}>
                 Find Study Groups & Tutors
               </Text>
-              <Text className={`text-sm ${accountType === 'student' ? 'text-white' : 'text-textSecondary'}`}>
+              <Text className="text-sm" style={{ color: accountType === 'student' ? '#FFFFFF' : isDark ? '#9CA3AF' : '#666666' }}>
                 Regular student account
               </Text>
             </View>
@@ -178,7 +164,7 @@ export default function ProfileSetupScreen({ navigation, route }) {
 
           <TouchableOpacity
             className={`flex-row items-center p-4 rounded-xl border-2 ${
-              accountType === 'tutor' ? 'bg-accent border-accent' : 'bg-cardLight border-gray-300'
+              accountType === 'tutor' ? 'bg-accent border-accent' : isDark ? 'bg-primary border-gray-700' : 'bg-cardLight border-gray-300'
             }`}
             onPress={() => setAccountType('tutor')}
             disabled={loading}
@@ -191,10 +177,10 @@ export default function ProfileSetupScreen({ navigation, route }) {
               )}
             </View>
             <View>
-              <Text className={`font-semibold ${accountType === 'tutor' ? 'text-white' : 'text-textPrimary'}`}>
+              <Text className="font-semibold" style={{ color: accountType === 'tutor' ? '#FFFFFF' : isDark ? '#FFFFFF' : '#000000' }}>
                 Offer Tutoring Services
               </Text>
-              <Text className={`text-sm ${accountType === 'tutor' ? 'text-white' : 'text-textSecondary'}`}>
+              <Text className="text-sm" style={{ color: accountType === 'tutor' ? '#FFFFFF' : isDark ? '#9CA3AF' : '#666666' }}>
                 Tutor account (can also join groups)
               </Text>
             </View>
@@ -202,60 +188,50 @@ export default function ProfileSetupScreen({ navigation, route }) {
         </View>
 
         {/* University Picker */}
-        <View className="mb-4">
-          <Text className="text-textPrimary mb-2 font-medium">University/Campus</Text>
-          <SelectField
-            value={university}
-            placeholder="Select your university"
-            options={NIGERIAN_UNIVERSITIES.map((u) => ({ label: u, value: u }))}
-            onChange={setUniversity}
-            disabled={loading}
-          />
-        </View>
+        <SearchableSelect
+          label="University/Campus"
+          value={university}
+          placeholder="Select your university"
+          modalTitle="Select University"
+          searchPlaceholder="Search universities..."
+          options={UNIVERSITIES.map((u) => ({ label: u, value: u }))}
+          onChange={setUniversity}
+          disabled={loading}
+        />
 
-        {/* Department Input */}
-        <View className="mb-4">
-          <Text className="text-textPrimary mb-2 font-medium">Department</Text>
-          <TextInput
-            className="bg-cardLight px-4 py-4 rounded-xl text-textPrimary"
-            placeholder="e.g., Computer Science"
-            value={department}
-            onChangeText={setDepartment}
-            editable={!loading}
-          />
-        </View>
+        {/* Department Picker */}
+        <SearchableSelect
+          label="Department"
+          value={department}
+          placeholder="Select your department"
+          modalTitle="Select Department"
+          searchPlaceholder="Search departments..."
+          options={COURSES.map((c) => ({ label: c, value: c }))}
+          onChange={setDepartment}
+          disabled={loading}
+        />
 
         {/* Year of Study Picker */}
-        <View className="mb-4">
-          <Text className="text-textPrimary mb-2 font-medium">Year of Study</Text>
-          <SelectField
-            value={yearOfStudy}
-            placeholder="Select year"
-            options={[
-              { label: '100 Level (Freshman)', value: '100' },
-              { label: '200 Level (Sophomore)', value: '200' },
-              { label: '300 Level (Junior)', value: '300' },
-              { label: '400 Level (Senior)', value: '400' },
-              { label: '500 Level (Final Year)', value: '500' },
-              { label: 'Graduate/Masters', value: 'graduate' },
-            ]}
-            onChange={setYearOfStudy}
-            disabled={loading}
-          />
-        </View>
+        <SearchableSelect
+          label="Year of Study"
+          value={yearOfStudy}
+          placeholder="Select year"
+          modalTitle="Select Year"
+          searchPlaceholder="Search years..."
+          options={YEAR_OF_STUDY_OPTIONS}
+          onChange={setYearOfStudy}
+          disabled={loading}
+        />
 
         {/* WhatsApp Number Input */}
         <View className="mb-6">
-          <Text className="text-textPrimary mb-2 font-medium">WhatsApp Number</Text>
-          <TextInput
-            className="bg-cardLight px-4 py-4 rounded-xl text-textPrimary"
-            placeholder="+234 XXX XXX XXXX"
+          <Text className="mb-2 font-medium" style={{ color: isDark ? '#FFFFFF' : '#000000' }}>WhatsApp Number</Text>
+          <PhoneInput
             value={whatsappNumber}
             onChangeText={setWhatsappNumber}
-            keyboardType="phone-pad"
             editable={!loading}
           />
-          <Text className="text-textSecondary text-xs mt-2">
+          <Text className="text-xs mt-2" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>
             Used to connect you with study groups and tutors
           </Text>
         </View>
@@ -265,10 +241,12 @@ export default function ProfileSetupScreen({ navigation, route }) {
           <>
             {/* Bio */}
             <View className="mb-4">
-              <Text className="text-textPrimary mb-2 font-medium">Bio</Text>
+              <Text className="mb-2 font-medium" style={{ color: isDark ? '#FFFFFF' : '#000000' }}>Bio</Text>
               <TextInput
-                className="bg-cardLight px-4 py-4 rounded-xl text-textPrimary"
+                className={`px-4 py-4 rounded-xl ${isDark ? 'bg-cardDark' : 'bg-cardLight'}`}
+                style={{ color: isDark ? '#FFFFFF' : '#000000' }}
                 placeholder="Tell students about yourself and your teaching style..."
+                placeholderTextColor="#9CA3AF"
                 value={bio}
                 onChangeText={setBio}
                 multiline
@@ -280,25 +258,29 @@ export default function ProfileSetupScreen({ navigation, route }) {
 
             {/* Hourly Rate */}
             <View className="mb-4">
-              <Text className="text-textPrimary mb-2 font-medium">Hourly Rate (Optional)</Text>
+              <Text className="mb-2 font-medium" style={{ color: isDark ? '#FFFFFF' : '#000000' }}>Hourly Rate (Optional)</Text>
               <TextInput
-                className="bg-cardLight px-4 py-4 rounded-xl text-textPrimary"
+                className={`px-4 py-4 rounded-xl ${isDark ? 'bg-cardDark' : 'bg-cardLight'}`}
+                style={{ color: isDark ? '#FFFFFF' : '#000000' }}
                 placeholder="e.g., ₦2000/hour or Free"
+                placeholderTextColor="#9CA3AF"
                 value={hourlyRate}
                 onChangeText={setHourlyRate}
                 editable={!loading}
               />
-              <Text className="text-textSecondary text-xs mt-2">
+              <Text className="text-xs mt-2" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>
                 Leave blank if you tutor for free
               </Text>
             </View>
 
             {/* Availability */}
             <View className="mb-6">
-              <Text className="text-textPrimary mb-2 font-medium">Availability</Text>
+              <Text className="mb-2 font-medium" style={{ color: isDark ? '#FFFFFF' : '#000000' }}>Availability</Text>
               <TextInput
-                className="bg-cardLight px-4 py-4 rounded-xl text-textPrimary"
+                className={`px-4 py-4 rounded-xl ${isDark ? 'bg-cardDark' : 'bg-cardLight'}`}
+                style={{ color: isDark ? '#FFFFFF' : '#000000' }}
                 placeholder="e.g., Weekdays 4pm-8pm, Weekends anytime"
+                placeholderTextColor="#9CA3AF"
                 value={availability}
                 onChangeText={setAvailability}
                 multiline
@@ -312,7 +294,7 @@ export default function ProfileSetupScreen({ navigation, route }) {
 
         {/* Continue Button */}
         <TouchableOpacity
-          className="bg-primary py-4 rounded-xl"
+          className={`py-4 rounded-xl ${isDark ? 'bg-cardDark' : 'bg-primary'}`}
           onPress={handleContinue}
           disabled={loading}
         >
@@ -326,38 +308,5 @@ export default function ProfileSetupScreen({ navigation, route }) {
         </TouchableOpacity>
       </View>
     </ScrollView>
-  );
-}
-
-function SelectField({ value, placeholder, options, onChange, disabled }) {
-  const displayLabel = options.find((o) => o.value === value)?.label || '';
-
-  const handlePress = () => {
-    if (disabled) return;
-    if (Platform.OS === 'ios') {
-      ActionSheetIOS.showActionSheetWithOptions(
-        { options: ['Cancel', ...options.map((o) => o.label)], cancelButtonIndex: 0 },
-        (index) => { if (index > 0) onChange(options[index - 1].value); }
-      );
-    } else {
-      Alert.alert(placeholder, '', [
-        ...options.map((o) => ({ text: o.label, onPress: () => onChange(o.value) })),
-        { text: 'Cancel', style: 'cancel' },
-      ]);
-    }
-  };
-
-  return (
-    <TouchableOpacity
-      className="bg-cardLight px-4 py-4 rounded-xl flex-row items-center justify-between"
-      onPress={handlePress}
-      activeOpacity={0.7}
-      disabled={disabled}
-    >
-      <Text className={displayLabel ? 'text-textPrimary' : 'text-gray-400'}>
-        {displayLabel || placeholder}
-      </Text>
-      <Ionicons name="chevron-down" size={16} color="#9CA3AF" />
-    </TouchableOpacity>
   );
 }

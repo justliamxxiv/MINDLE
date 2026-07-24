@@ -1,27 +1,26 @@
 import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Alert, SafeAreaView, ActivityIndicator, Modal, TextInput, Switch, Platform, ActionSheetIOS } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Alert, SafeAreaView, ActivityIndicator, Modal, TextInput, Switch, Image } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { signOut } from 'firebase/auth';
 import { doc, updateDoc } from 'firebase/firestore';
+import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { auth, db } from '../config/firebaseConfig';
 import { useUser } from '../context/UserContext';
+import { useTheme } from '../context/ThemeContext';
 import { updateUserWithUniquePhone } from '../services/userService';
 import { normalizePhone } from '../utils/whatsapp';
-
-const NIGERIAN_UNIVERSITIES = [
-  'Adeleke University', 'Ahmadu Bello University', 'Babcock University',
-  'Covenant University', 'Federal University of Technology, Akure',
-  'Federal University of Technology, Minna', 'Lagos State University',
-  'Obafemi Awolowo University', 'University of Benin', 'University of Ibadan',
-  'University of Ilorin', 'University of Jos', 'University of Lagos',
-  'University of Nigeria, Nsukka', 'University of Port Harcourt',
-].sort();
+import { UNIVERSITIES, COURSES, YEAR_OF_STUDY_OPTIONS } from '../utils/academicOptions';
+import SearchableSelect from '../components/SearchableSelect';
+import PhoneInput from '../components/PhoneInput';
 
 export default function ProfileScreen({ navigation }) {
   const { userData, loading, refreshUserData } = useUser();
+  const { isDark, toggleTheme } = useTheme();
   const [activeModal, setActiveModal] = React.useState(null);
   const [saving, setSaving] = React.useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = React.useState(false);
 
   // Edit form state — initialised when modal opens
   const [editName, setEditName] = React.useState('');
@@ -48,6 +47,76 @@ export default function ProfileScreen({ navigation }) {
       await updateDoc(doc(db, 'users', auth.currentUser.uid), updates);
     } catch (e) {
       Alert.alert('Error', 'Could not save preference. Please try again.');
+    }
+  };
+
+  const handleAvatarPress = () => {
+    if (uploadingAvatar) return;
+
+    const options = [
+      { text: userData?.avatar ? 'Replace Photo' : 'Choose Photo', onPress: handlePickAvatar },
+    ];
+    if (userData?.avatar) {
+      options.push({ text: 'Remove Photo', style: 'destructive', onPress: handleRemoveAvatar });
+    }
+    options.push({ text: 'Cancel', style: 'cancel' });
+
+    Alert.alert('Profile Photo', '', options);
+  };
+
+  const handleRemoveAvatar = async () => {
+    setUploadingAvatar(true);
+    try {
+      await updateDoc(doc(db, 'users', auth.currentUser.uid), { avatar: null });
+      await refreshUserData();
+    } catch (error) {
+      console.error('Avatar removal error:', error);
+      Alert.alert('Error', 'Could not remove your photo. Please try again.');
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
+  const handlePickAvatar = async () => {
+    if (uploadingAvatar) return;
+
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Permission needed', 'Allow photo access to set a profile picture.');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 1,
+      });
+
+      if (result.canceled) return;
+
+      setUploadingAvatar(true);
+
+      // Resize to small square + compress + convert to base64
+      const manipulated = await ImageManipulator.manipulateAsync(
+        result.assets[0].uri,
+        [{ resize: { width: 300, height: 300 } }],
+        { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+      );
+
+      const base64Image = `data:image/jpeg;base64,${manipulated.base64}`;
+
+      await updateDoc(doc(db, 'users', auth.currentUser.uid), {
+        avatar: base64Image,
+      });
+
+      await refreshUserData();
+    } catch (error) {
+      console.error('Avatar upload error:', error);
+      Alert.alert('Error', 'Could not update your photo. Please try again.');
+    } finally {
+      setUploadingAvatar(false);
     }
   };
 
@@ -129,8 +198,8 @@ export default function ProfileScreen({ navigation }) {
 
   if (loading) {
     return (
-      <SafeAreaView className="flex-1 bg-background items-center justify-center">
-        <StatusBar style="dark" />
+      <SafeAreaView className={`flex-1 items-center justify-center ${isDark ? 'bg-backgroundDark' : 'bg-background'}`}>
+        <StatusBar style={isDark ? 'light' : 'dark'} />
         <ActivityIndicator size="large" color="#FF3131" />
       </SafeAreaView>
     );
@@ -148,16 +217,41 @@ export default function ProfileScreen({ navigation }) {
   const campusLine = [userData?.university, userData?.department].filter(Boolean).join(' • ');
 
   return (
-    <SafeAreaView className="flex-1 bg-background">
-      <StatusBar style="dark" />
+    <SafeAreaView className={`flex-1 ${isDark ? 'bg-backgroundDark' : 'bg-background'}`}>
+      <StatusBar style={isDark ? 'light' : 'dark'} />
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
         <View className="px-6 pt-4 pb-8">
-          <View className="bg-primary rounded-3xl p-6 mb-6">
+          <View
+            className={`rounded-3xl p-6 mb-6 ${isDark ? '' : 'bg-primary'}`}
+            style={isDark ? { backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.35)' } : undefined}
+          >
             <View className="flex-row items-start justify-between mb-6">
               <View className="flex-row items-center flex-1 pr-4">
-                <View className="w-14 h-14 rounded-full bg-white items-center justify-center mr-3">
-                  <Text className="text-accent text-lg font-bold">{initials}</Text>
-                </View>
+                <TouchableOpacity
+                  onPress={handleAvatarPress}
+                  activeOpacity={0.8}
+                  disabled={uploadingAvatar}
+                  className="mr-3"
+                >
+                  <View className="w-14 h-14 rounded-full bg-white items-center justify-center overflow-hidden">
+                    {uploadingAvatar ? (
+                      <ActivityIndicator size="small" color="#FF3131" />
+                    ) : userData?.avatar ? (
+                      <Image
+                        source={{ uri: userData.avatar }}
+                        style={{ width: 56, height: 56, borderRadius: 28 }}
+                      />
+                    ) : (
+                      <Text className="text-accent text-lg font-bold">{initials}</Text>
+                    )}
+                  </View>
+                  <View
+                    className="absolute bottom-0 right-0 w-5 h-5 rounded-full bg-accent items-center justify-center"
+                    style={{ borderWidth: 1.5, borderColor: '#090F43' }}
+                  >
+                    <Ionicons name="camera" size={10} color="#FFFFFF" />
+                  </View>
+                </TouchableOpacity>
                 <View className="flex-1 justify-center">
                   <Text className="text-white text-2xl font-bold">{name}</Text>
                 </View>
@@ -189,9 +283,9 @@ export default function ProfileScreen({ navigation }) {
           </View>
 
           <View className="mb-6">
-            <Text className="text-2xl font-bold text-primary mb-4">Account details</Text>
+            <Text className="text-2xl font-bold mb-4" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>Account details</Text>
 
-            <View className="bg-white rounded-3xl border border-gray-100 overflow-hidden">
+            <View className={`rounded-3xl border overflow-hidden ${isDark ? 'bg-cardDark border-gray-800' : 'bg-white border-gray-100'}`}>
               <ProfileRow icon="mail-outline" label="Email" value={email} />
               <Divider />
               <ProfileRow icon="school-outline" label="University" value={userData?.university || 'Not added'} />
@@ -206,33 +300,33 @@ export default function ProfileScreen({ navigation }) {
 
           {isTutor && (
             <View className="mb-6">
-              <Text className="text-2xl font-bold text-primary mb-4">Tutor profile</Text>
+              <Text className="text-2xl font-bold mb-4" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>Tutor profile</Text>
 
-              <View className="bg-cardLight rounded-3xl p-5 mb-4">
-                <Text className="text-textSecondary text-sm mb-1">Bio</Text>
-                <Text className="text-primary text-base leading-6">
+              <View className={`rounded-3xl p-5 mb-4 ${isDark ? 'bg-cardDark' : 'bg-cardLight'}`}>
+                <Text className="text-sm mb-1" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>Bio</Text>
+                <Text className="text-base leading-6" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>
                   {userData?.bio || 'Add a short teaching bio so students can understand your style.'}
                 </Text>
               </View>
 
               <View className="flex-row mb-4" style={{ gap: 12 }}>
-                <View className="flex-1 bg-white rounded-3xl border border-gray-100 p-5">
-                  <Text className="text-textSecondary text-sm mb-1">Hourly Rate</Text>
-                  <Text className="text-primary text-lg font-bold">
+                <View className={`flex-1 rounded-3xl border p-5 ${isDark ? 'bg-cardDark border-gray-800' : 'bg-white border-gray-100'}`}>
+                  <Text className="text-sm mb-1" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>Hourly Rate</Text>
+                  <Text className="text-lg font-bold" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>
                     {userData?.hourlyRate || 'Not set'}
                   </Text>
                 </View>
-                <View className="flex-1 bg-white rounded-3xl border border-gray-100 p-5">
-                  <Text className="text-textSecondary text-sm mb-1">Rating</Text>
-                  <Text className="text-primary text-lg font-bold">
+                <View className={`flex-1 rounded-3xl border p-5 ${isDark ? 'bg-cardDark border-gray-800' : 'bg-white border-gray-100'}`}>
+                  <Text className="text-sm mb-1" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>Rating</Text>
+                  <Text className="text-lg font-bold" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>
                     {userData?.rating ?? 0} / 5
                   </Text>
                 </View>
               </View>
 
-              <View className="bg-white rounded-3xl border border-gray-100 p-5">
-                <Text className="text-textSecondary text-sm mb-1">Availability</Text>
-                <Text className="text-primary text-base leading-6">
+              <View className={`rounded-3xl border p-5 ${isDark ? 'bg-cardDark border-gray-800' : 'bg-white border-gray-100'}`}>
+                <Text className="text-sm mb-1" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>Availability</Text>
+                <Text className="text-base leading-6" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>
                   {userData?.availability || 'Add when you are available for tutoring.'}
                 </Text>
               </View>
@@ -240,7 +334,7 @@ export default function ProfileScreen({ navigation }) {
           )}
 
           <View className="mb-6">
-            <Text className="text-2xl font-bold text-primary mb-4">Quick actions</Text>
+            <Text className="text-2xl font-bold mb-4" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>Quick actions</Text>
 
             <View style={{ gap: 12 }}>
               <ActionCard
@@ -249,6 +343,23 @@ export default function ProfileScreen({ navigation }) {
                 subtitle="Update your academic info, contact details, and preferences."
                 onPress={openEditModal}
               />
+              <View className={`flex-row items-center rounded-3xl border p-5 ${isDark ? 'bg-cardDark border-gray-800' : 'bg-white border-gray-100'}`}>
+                <View className={`w-12 h-12 rounded-2xl items-center justify-center mr-4 ${isDark ? 'bg-cardDark' : 'bg-cardLight'}`}>
+                  <Ionicons name={isDark ? 'moon' : 'sunny-outline'} size={22} color="#FF3131" />
+                </View>
+                <View className="flex-1 pr-3">
+                  <Text className="font-bold text-base mb-1" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>Dark mode</Text>
+                  <Text className="leading-5" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>
+                    {isDark ? 'Easy on the eyes at night.' : 'Switch to a darker look.'}
+                  </Text>
+                </View>
+                <Switch
+                  value={isDark}
+                  onValueChange={toggleTheme}
+                  trackColor={{ false: '#E5E7EB', true: '#FF3131' }}
+                  thumbColor="#FFFFFF"
+                />
+              </View>
               <ActionCard
                 icon="notifications-outline"
                 title="Notifications"
@@ -284,7 +395,7 @@ export default function ProfileScreen({ navigation }) {
         onClose={() => setActiveModal(null)}
         footer={
           <TouchableOpacity
-            className="bg-primary py-4 rounded-2xl mt-4"
+            className={`py-4 rounded-2xl mt-4 ${isDark ? 'bg-cardDark' : 'bg-primary'}`}
             onPress={handleSaveProfile}
             disabled={saving}
             activeOpacity={0.85}
@@ -298,34 +409,46 @@ export default function ProfileScreen({ navigation }) {
       >
         <EditField label="Full name" value={editName} onChangeText={setEditName} placeholder="Your name" />
 
-        <SelectField
+        <SearchableSelect
           label="University"
           value={editUniversity}
           placeholder="Select university"
-          options={NIGERIAN_UNIVERSITIES.map((u) => ({ label: u, value: u }))}
+          modalTitle="Select University"
+          searchPlaceholder="Search universities..."
+          options={UNIVERSITIES.map((u) => ({ label: u, value: u }))}
           onChange={setEditUniversity}
           disabled={saving}
+          containerClassName="mb-3"
         />
 
-        <EditField label="Department" value={editDepartment} onChangeText={setEditDepartment} placeholder="e.g. Computer Science" disabled={saving} />
+        <SearchableSelect
+          label="Department"
+          value={editDepartment}
+          placeholder="Select department"
+          modalTitle="Select Department"
+          searchPlaceholder="Search departments..."
+          options={COURSES.map((c) => ({ label: c, value: c }))}
+          onChange={setEditDepartment}
+          disabled={saving}
+          containerClassName="mb-3"
+        />
 
-        <SelectField
+        <SearchableSelect
           label="Year of study"
           value={editYear}
           placeholder="Select year"
-          options={[
-            { label: '100 Level', value: '100' },
-            { label: '200 Level', value: '200' },
-            { label: '300 Level', value: '300' },
-            { label: '400 Level', value: '400' },
-            { label: '500 Level', value: '500' },
-            { label: 'Graduate / Masters', value: 'graduate' },
-          ]}
+          modalTitle="Select Year"
+          searchPlaceholder="Search years..."
+          options={YEAR_OF_STUDY_OPTIONS}
           onChange={setEditYear}
           disabled={saving}
+          containerClassName="mb-3"
         />
 
-        <EditField label="WhatsApp number" value={editWhatsapp} onChangeText={setEditWhatsapp} placeholder="+234 XXX XXX XXXX" keyboardType="phone-pad" disabled={saving} />
+        <View className="mb-3">
+          <Text className="text-sm mb-1" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>WhatsApp number</Text>
+          <PhoneInput value={editWhatsapp} onChangeText={setEditWhatsapp} editable={!saving} />
+        </View>
 
         {isTutor && (
           <>
@@ -394,33 +517,40 @@ export default function ProfileScreen({ navigation }) {
 }
 
 function ProfileRow({ icon, label, value }) {
+  const { isDark } = useTheme();
   return (
     <View className="px-5 py-4 flex-row items-center">
-      <View className="w-11 h-11 rounded-2xl bg-cardLight items-center justify-center mr-4">
-        <Ionicons name={icon} size={20} color="#090F43" />
+      <View className={`w-11 h-11 rounded-2xl items-center justify-center mr-4 ${isDark ? 'bg-cardDark' : 'bg-cardLight'}`}>
+        <Ionicons name={icon} size={20} color={isDark ? '#FFFFFF' : '#090F43'} />
       </View>
       <View className="flex-1">
-        <Text className="text-textSecondary text-sm mb-1">{label}</Text>
-        <Text className="text-primary font-semibold">{value}</Text>
+        <Text className="text-sm mb-1" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>{label}</Text>
+        <Text className="font-semibold" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>{value}</Text>
       </View>
     </View>
   );
 }
 
 function Divider() {
-  return <View className="h-px bg-gray-100 mx-5" />;
+  const { isDark } = useTheme();
+  return <View className={`h-px mx-5 ${isDark ? 'bg-gray-800' : 'bg-gray-100'}`} />;
 }
 
 function ActionCard({ icon, title, subtitle, onPress }) {
+  const { isDark } = useTheme();
   return (
-    <TouchableOpacity className="bg-white rounded-3xl border border-gray-100 p-5" activeOpacity={0.86} onPress={onPress}>
+    <TouchableOpacity
+      className={`rounded-3xl border p-5 ${isDark ? 'bg-cardDark border-gray-800' : 'bg-white border-gray-100'}`}
+      activeOpacity={0.86}
+      onPress={onPress}
+    >
       <View className="flex-row items-center">
-        <View className="w-12 h-12 rounded-2xl bg-cardLight items-center justify-center mr-4">
+        <View className={`w-12 h-12 rounded-2xl items-center justify-center mr-4 ${isDark ? 'bg-cardDark' : 'bg-cardLight'}`}>
           <Ionicons name={icon} size={22} color="#FF3131" />
         </View>
         <View className="flex-1 pr-3">
-          <Text className="text-primary font-bold text-base mb-1">{title}</Text>
-          <Text className="text-textSecondary leading-5">{subtitle}</Text>
+          <Text className="font-bold text-base mb-1" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>{title}</Text>
+          <Text className="leading-5" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>{subtitle}</Text>
         </View>
         <Ionicons name="chevron-forward" size={20} color="#CCCCCC" />
       </View>
@@ -429,24 +559,25 @@ function ActionCard({ icon, title, subtitle, onPress }) {
 }
 
 function ProfileActionModal({ visible, title, subtitle, icon, onClose, children, footer }) {
+  const { isDark } = useTheme();
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View className="flex-1 bg-black/40 justify-end">
-        <View className="bg-background rounded-t-3xl px-6 pt-5 pb-8" style={{ maxHeight: '85%' }}>
+        <View className={`rounded-t-3xl px-6 pt-5 pb-8 ${isDark ? 'bg-backgroundDark' : 'bg-background'}`} style={{ maxHeight: '85%' }}>
           <View className="flex-row items-start justify-between mb-5">
             <View className="flex-1 pr-4">
-              <View className="w-12 h-12 rounded-2xl bg-cardLight items-center justify-center mb-3">
+              <View className={`w-12 h-12 rounded-2xl items-center justify-center mb-3 ${isDark ? 'bg-cardDark' : 'bg-cardLight'}`}>
                 <Ionicons name={icon} size={22} color="#FF3131" />
               </View>
-              <Text className="text-2xl font-bold text-primary mb-1">{title}</Text>
-              <Text className="text-textSecondary leading-6">{subtitle}</Text>
+              <Text className="text-2xl font-bold mb-1" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>{title}</Text>
+              <Text className="leading-6" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>{subtitle}</Text>
             </View>
             <TouchableOpacity
-              className="w-10 h-10 rounded-full bg-cardLight items-center justify-center"
+              className={`w-10 h-10 rounded-full items-center justify-center ${isDark ? 'bg-cardDark' : 'bg-cardLight'}`}
               onPress={onClose}
               activeOpacity={0.85}
             >
-              <Ionicons name="close" size={20} color="#090F43" />
+              <Ionicons name="close" size={20} color={isDark ? '#FFFFFF' : '#090F43'} />
             </TouchableOpacity>
           </View>
 
@@ -460,48 +591,14 @@ function ProfileActionModal({ visible, title, subtitle, icon, onClose, children,
   );
 }
 
-function SelectField({ label, value, placeholder, options, onChange, disabled }) {
-  const displayLabel = options.find((o) => o.value === value)?.label || '';
-
-  const handlePress = () => {
-    if (disabled) return;
-    if (Platform.OS === 'ios') {
-      ActionSheetIOS.showActionSheetWithOptions(
-        { options: ['Cancel', ...options.map((o) => o.label)], cancelButtonIndex: 0 },
-        (index) => { if (index > 0) onChange(options[index - 1].value); }
-      );
-    } else {
-      Alert.alert(label, '', [
-        ...options.map((o) => ({ text: o.label, onPress: () => onChange(o.value) })),
-        { text: 'Cancel', style: 'cancel' },
-      ]);
-    }
-  };
-
-  return (
-    <View className="mb-3">
-      <Text className="text-textSecondary text-sm mb-1">{label}</Text>
-      <TouchableOpacity
-        className="bg-cardLight px-4 py-3 rounded-2xl flex-row items-center justify-between"
-        onPress={handlePress}
-        activeOpacity={0.7}
-        disabled={disabled}
-      >
-        <Text className={displayLabel ? 'text-primary' : 'text-gray-400'}>
-          {displayLabel || placeholder}
-        </Text>
-        <Ionicons name="chevron-down" size={16} color="#9CA3AF" />
-      </TouchableOpacity>
-    </View>
-  );
-}
-
 function EditField({ label, value, onChangeText, placeholder, multiline, keyboardType, disabled }) {
+  const { isDark } = useTheme();
   return (
     <View className="mb-3">
-      <Text className="text-textSecondary text-sm mb-1">{label}</Text>
+      <Text className="text-sm mb-1" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>{label}</Text>
       <TextInput
-        className="bg-cardLight px-4 py-3 rounded-2xl text-primary"
+        className={`px-4 py-3 rounded-2xl ${isDark ? 'bg-cardDark' : 'bg-cardLight'}`}
+        style={{ color: isDark ? '#FFFFFF' : '#090F43' }}
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
@@ -517,11 +614,12 @@ function EditField({ label, value, onChangeText, placeholder, multiline, keyboar
 }
 
 function ToggleRow({ label, description, value, onValueChange }) {
+  const { isDark } = useTheme();
   return (
-    <View className="flex-row items-center bg-cardLight rounded-2xl p-4 mb-3">
+    <View className={`flex-row items-center rounded-2xl p-4 mb-3 ${isDark ? 'bg-cardDark' : 'bg-cardLight'}`}>
       <View className="flex-1 pr-3">
-        <Text className="text-primary font-semibold mb-0.5">{label}</Text>
-        <Text className="text-textSecondary text-xs leading-5">{description}</Text>
+        <Text className="font-semibold mb-0.5" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>{label}</Text>
+        <Text className="text-xs leading-5" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>{description}</Text>
       </View>
       <Switch
         value={value}

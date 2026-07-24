@@ -3,6 +3,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { useUser } from '../context/UserContext';
+import { useTheme } from '../context/ThemeContext';
 
 // Student screens
 import HomeScreen from './HomeScreen';
@@ -18,15 +19,6 @@ import TutorStudentsScreen from './TutorStudentsScreen';
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
-const TAB_BAR_STYLE = {
-  backgroundColor: '#FFFFFF',
-  borderTopWidth: 1,
-  borderTopColor: '#F5F5F5',
-  paddingBottom: 20,
-  paddingTop: 8,
-  height: 75,
-};
-
 function tabIcon(routeName, focused, color, size) {
   const icons = {
     Home:     focused ? 'home'          : 'home-outline',
@@ -38,18 +30,28 @@ function tabIcon(routeName, focused, color, size) {
   return <Ionicons name={icons[routeName] || 'ellipse'} size={size} color={color} />;
 }
 
-const TAB_SCREEN_OPTIONS = ({ route }) => ({
-  headerShown: false,
-  tabBarActiveTintColor: '#FF3131',
-  tabBarInactiveTintColor: '#666666',
-  tabBarStyle: TAB_BAR_STYLE,
-  tabBarLabelStyle: { fontSize: 12, fontWeight: '600' },
-  tabBarIcon: ({ focused, color, size }) => tabIcon(route.name, focused, color, size),
-});
+function buildScreenOptions(isDark) {
+  return ({ route }) => ({
+    headerShown: false,
+    tabBarActiveTintColor: '#FF3131',
+    tabBarInactiveTintColor: isDark ? '#9CA3AF' : '#666666',
+    tabBarStyle: {
+      backgroundColor: isDark ? '#0F1554' : '#FFFFFF',
+      borderTopWidth: 1,
+      borderTopColor: isDark ? '#1F2937' : '#F5F5F5',
+      paddingBottom: 20,
+      paddingTop: 8,
+      height: 75,
+    },
+    tabBarLabelStyle: { fontSize: 12, fontWeight: '600' },
+    tabBarIcon: ({ focused, color, size }) => tabIcon(route.name, focused, color, size),
+  });
+}
 
 function StudentTabs() {
+  const { isDark } = useTheme();
   return (
-    <Tab.Navigator screenOptions={TAB_SCREEN_OPTIONS}>
+    <Tab.Navigator screenOptions={buildScreenOptions(isDark)}>
       <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="Groups" component={GroupsScreen} />
       <Tab.Screen name="Tutors" component={TutorsScreen} />
@@ -59,8 +61,9 @@ function StudentTabs() {
 }
 
 function TutorTabs() {
+  const { isDark } = useTheme();
   return (
-    <Tab.Navigator screenOptions={TAB_SCREEN_OPTIONS}>
+    <Tab.Navigator screenOptions={buildScreenOptions(isDark)}>
       <Tab.Screen name="Home" component={TutorHomeScreen} />
       <Tab.Screen name="Groups" component={GroupsScreen} />
       <Tab.Screen name="Students" component={TutorStudentsScreen} />

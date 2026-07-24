@@ -3,6 +3,7 @@ import { View, Text, ScrollView, SafeAreaView, TouchableOpacity, TextInput, Acti
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useUser } from '../context/UserContext';
+import { useTheme } from '../context/ThemeContext';
 import { subscribeTutors } from '../services/sessionService';
 
 const SUBJECT_FILTERS = ['All', 'Top Rated', 'Free', 'STEM', 'Exam Prep'];
@@ -11,6 +12,7 @@ const ACCENT_COLORS = ['#FF3131', '#4CAF50', '#090F43', '#FFB800', '#2196F3', '#
 
 export default function TutorsScreen({ navigation }) {
   const { userData } = useUser();
+  const { isDark } = useTheme();
   const [activeFilter, setActiveFilter] = useState('All');
   const [tutors, setTutors] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -57,27 +59,28 @@ export default function TutorsScreen({ navigation }) {
   });
 
   return (
-    <SafeAreaView className="flex-1 bg-background">
-      <StatusBar style="dark" />
+    <SafeAreaView className={`flex-1 ${isDark ? 'bg-backgroundDark' : 'bg-background'}`}>
+      <StatusBar style={isDark ? 'light' : 'dark'} />
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
         <View className="px-6 pt-4 pb-8">
 
           {/* Header */}
           <View className="mb-6">
-            <Text className="text-textSecondary text-sm mb-1">Tutors</Text>
-            <Text className="text-3xl font-bold text-primary mb-2">Learn with the right guide</Text>
-            <Text className="text-textSecondary text-base leading-6">
+            <Text className="text-sm mb-1" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>Tutors</Text>
+            <Text className="text-3xl font-bold mb-2" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>Learn with the right guide</Text>
+            <Text className="text-base leading-6" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>
               Browse trusted tutors, compare rates, and find support that fits how you like to study, {firstName}.
             </Text>
           </View>
 
           {/* Search */}
-          <View className="bg-cardLight rounded-2xl px-4 py-3 flex-row items-center mb-4">
-            <Ionicons name="search-outline" size={20} color="#666666" />
+          <View className={`rounded-2xl px-4 py-3 flex-row items-center mb-4 ${isDark ? 'bg-cardDark' : 'bg-cardLight'}`}>
+            <Ionicons name="search-outline" size={20} color={isDark ? '#9CA3AF' : '#666666'} />
             <TextInput
               placeholder="Search tutors, courses, or skills"
-              placeholderTextColor="#666666"
-              className="flex-1 ml-3 text-textPrimary"
+              placeholderTextColor="#9CA3AF"
+              className="flex-1 ml-3"
+              style={{ color: isDark ? '#FFFFFF' : '#000000' }}
               value={search}
               onChangeText={setSearch}
             />
@@ -95,11 +98,16 @@ export default function TutorsScreen({ navigation }) {
               return (
                 <TouchableOpacity
                   key={filter}
-                  className={`mr-3 px-4 py-2 rounded-full ${active ? 'bg-primary' : 'bg-cardLight'}`}
+                  className={`mr-3 px-4 py-2 rounded-full ${active ? 'bg-primary' : isDark ? 'bg-cardDark' : 'bg-cardLight'}`}
                   onPress={() => setActiveFilter(filter)}
                   activeOpacity={0.85}
                 >
-                  <Text className={`${active ? 'text-white' : 'text-primary'} font-semibold text-sm`}>{filter}</Text>
+                  <Text
+                    className="font-semibold text-sm"
+                    style={{ color: active ? '#FFFFFF' : isDark ? '#FFFFFF' : '#090F43' }}
+                  >
+                    {filter}
+                  </Text>
                 </TouchableOpacity>
               );
             })}
@@ -135,22 +143,22 @@ export default function TutorsScreen({ navigation }) {
 
           {/* Tutor list */}
           <View className="flex-row justify-between items-center mb-4">
-            <Text className="text-2xl font-bold text-primary">
+            <Text className="text-2xl font-bold" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>
               {activeFilter === 'All' ? 'All tutors' : activeFilter}
             </Text>
-            <Text className="text-textSecondary text-sm">{filtered.length} found</Text>
+            <Text className="text-sm" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>{filtered.length} found</Text>
           </View>
 
           {loading ? (
             <View className="py-16 items-center">
               <ActivityIndicator size="large" color="#FF3131" />
-              <Text className="text-textSecondary mt-3">Loading tutors...</Text>
+              <Text className="mt-3" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>Loading tutors...</Text>
             </View>
           ) : filtered.length === 0 ? (
-            <View className="bg-cardLight rounded-2xl p-10 items-center">
+            <View className={`rounded-2xl p-10 items-center ${isDark ? 'bg-cardDark' : 'bg-cardLight'}`}>
               <Ionicons name="school-outline" size={48} color="#CCCCCC" />
-              <Text className="text-textSecondary text-center mt-3 font-medium">No tutors found</Text>
-              <Text className="text-textSecondary text-xs text-center mt-1">
+              <Text className="text-center mt-3 font-medium" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>No tutors found</Text>
+              <Text className="text-xs text-center mt-1" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>
                 Try a different search or filter
               </Text>
             </View>
@@ -160,28 +168,28 @@ export default function TutorsScreen({ navigation }) {
                 const accent = ACCENT_COLORS[index % ACCENT_COLORS.length];
                 const initials = tutor.name?.split(' ').map((p) => p[0]).join('').slice(0, 2) || '?';
                 return (
-                  <View key={tutor.id} className="bg-white rounded-3xl p-5 border border-gray-100">
+                  <View key={tutor.id} className={`rounded-3xl p-5 border ${isDark ? 'bg-cardDark border-gray-800' : 'bg-white border-gray-100'}`}>
                     {/* Top row */}
                     <View className="flex-row items-start mb-4">
                       <View className="w-14 h-14 rounded-2xl items-center justify-center mr-4" style={{ backgroundColor: accent + '18' }}>
                         <Text className="text-lg font-bold" style={{ color: accent }}>{initials}</Text>
                       </View>
                       <View className="flex-1 pr-3">
-                        <Text className="text-lg font-bold text-primary mb-0.5">{tutor.name}</Text>
-                        <Text className="text-textSecondary text-sm mb-1">{tutor.department}</Text>
+                        <Text className="text-lg font-bold mb-0.5" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>{tutor.name}</Text>
+                        <Text className="text-sm mb-1" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>{tutor.department}</Text>
                         <View className="flex-row items-center">
                           {tutor.rating > 0 && (
                             <>
                               <Ionicons name="star" size={14} color="#FFB800" />
-                              <Text className="text-primary text-sm font-semibold ml-1">{tutor.rating}</Text>
-                              <Text className="text-textSecondary text-sm mx-2">·</Text>
+                              <Text className="text-sm font-semibold ml-1" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>{tutor.rating}</Text>
+                              <Text className="text-sm mx-2" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>·</Text>
                             </>
                           )}
-                          <Text className="text-textSecondary text-sm">{tutor.university}</Text>
+                          <Text className="text-sm" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>{tutor.university}</Text>
                         </View>
                       </View>
-                      <View className="bg-cardLight px-3 py-2 rounded-full">
-                        <Text className="text-primary text-xs font-semibold">
+                      <View className={`px-3 py-2 rounded-full ${isDark ? 'bg-cardDark' : 'bg-cardLight'}`}>
+                        <Text className="text-xs font-semibold" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>
                           {tutor.hourlyRate || 'Free'}
                         </Text>
                       </View>
@@ -189,15 +197,15 @@ export default function TutorsScreen({ navigation }) {
 
                     {/* Bio */}
                     {tutor.bio ? (
-                      <Text className="text-textSecondary leading-6 mb-4">{tutor.bio}</Text>
+                      <Text className="leading-6 mb-4" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>{tutor.bio}</Text>
                     ) : null}
 
                     {/* Availability */}
                     {tutor.availability ? (
-                      <View className="bg-cardLight rounded-2xl p-4 mb-4">
+                      <View className={`rounded-2xl p-4 mb-4 ${isDark ? 'bg-cardDark' : 'bg-cardLight'}`}>
                         <View className="flex-row items-center">
-                          <Ionicons name="time-outline" size={16} color="#666666" />
-                          <Text className="text-textSecondary text-sm ml-2">{tutor.availability}</Text>
+                          <Ionicons name="time-outline" size={16} color={isDark ? '#9CA3AF' : '#666666'} />
+                          <Text className="text-sm ml-2" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>{tutor.availability}</Text>
                         </View>
                       </View>
                     ) : null}

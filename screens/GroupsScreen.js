@@ -6,6 +6,7 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useUser } from '../context/UserContext';
+import { useTheme } from '../context/ThemeContext';
 import { subscribeGroups, createGroup, updateGroup, deleteGroup } from '../services/groupService';
 
 const FILTERS = ['All', 'My Campus', 'My Department', 'My Course'];
@@ -13,6 +14,7 @@ const PAGE_SIZE = 5;
 
 export default function GroupsScreen() {
   const { userData, firebaseUser } = useUser();
+  const { isDark } = useTheme();
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState('All');
@@ -56,27 +58,28 @@ export default function GroupsScreen() {
   const myCampusCount = groups.filter((g) => g.university === userData?.university).length;
 
   return (
-    <SafeAreaView className="flex-1 bg-background">
-      <StatusBar style="dark" />
+    <SafeAreaView className={`flex-1 ${isDark ? 'bg-backgroundDark' : 'bg-background'}`}>
+      <StatusBar style={isDark ? 'light' : 'dark'} />
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
         <View className="px-6 pt-4 pb-8">
 
           {/* Header */}
           <View className="mb-6">
-            <Text className="text-textSecondary text-sm mb-1">WhatsApp Study Groups</Text>
-            <Text className="text-3xl font-bold text-primary mb-2">Find your people, {firstName}</Text>
-            <Text className="text-textSecondary text-base leading-6">
+            <Text className="text-sm mb-1" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>WhatsApp Study Groups</Text>
+            <Text className="text-3xl font-bold mb-2" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>Find your people, {firstName}</Text>
+            <Text className="text-base leading-6" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>
               Browse active WhatsApp groups for your courses and connect with students on your campus.
             </Text>
           </View>
 
           {/* Search */}
-          <View className="bg-cardLight rounded-2xl px-4 py-3 flex-row items-center mb-4">
-            <Ionicons name="search-outline" size={20} color="#666666" />
+          <View className={`rounded-2xl px-4 py-3 flex-row items-center mb-4 ${isDark ? 'bg-cardDark' : 'bg-cardLight'}`}>
+            <Ionicons name="search-outline" size={20} color={isDark ? '#9CA3AF' : '#666666'} />
             <TextInput
               placeholder="Search by course, topic, or campus"
-              placeholderTextColor="#666666"
-              className="flex-1 ml-3 text-textPrimary"
+              placeholderTextColor="#9CA3AF"
+              className="flex-1 ml-3"
+              style={{ color: isDark ? '#FFFFFF' : '#000000' }}
               value={search}
               onChangeText={setSearch}
             />
@@ -94,18 +97,26 @@ export default function GroupsScreen() {
               return (
                 <TouchableOpacity
                   key={filter}
-                  className={`mr-3 px-4 py-2 rounded-full ${active ? 'bg-accent' : 'bg-cardLight'}`}
+                  className={`mr-3 px-4 py-2 rounded-full ${active ? 'bg-accent' : isDark ? 'bg-cardDark' : 'bg-cardLight'}`}
                   onPress={() => setActiveFilter(filter)}
                   activeOpacity={0.85}
                 >
-                  <Text className={`${active ? 'text-white' : 'text-primary'} font-semibold text-sm`}>{filter}</Text>
+                  <Text
+                    className="font-semibold text-sm"
+                    style={{ color: active ? '#FFFFFF' : isDark ? '#FFFFFF' : '#090F43' }}
+                  >
+                    {filter}
+                  </Text>
                 </TouchableOpacity>
               );
             })}
           </ScrollView>
 
           {/* Stats card */}
-          <View className="bg-primary rounded-3xl p-6 mb-6">
+          <View
+            className={`rounded-3xl p-6 mb-6 ${isDark ? '' : 'bg-primary'}`}
+            style={isDark ? { backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.35)' } : undefined}
+          >
             <View className="flex-row justify-between items-start mb-5">
               <View className="flex-1 pr-4">
                 <Text className="text-white text-sm opacity-80 mb-1">How It Works</Text>
@@ -132,22 +143,22 @@ export default function GroupsScreen() {
 
           {/* Group list */}
           <View className="flex-row justify-between items-center mb-4">
-            <Text className="text-2xl font-bold text-primary">
+            <Text className="text-2xl font-bold" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>
               {activeFilter === 'All' ? 'All groups' : activeFilter}
             </Text>
-            <Text className="text-textSecondary text-sm">{filtered.length} found</Text>
+            <Text className="text-sm" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>{filtered.length} found</Text>
           </View>
 
           {loading ? (
             <View className="py-16 items-center">
               <ActivityIndicator size="large" color="#FF3131" />
-              <Text className="text-textSecondary mt-3">Loading groups...</Text>
+              <Text className="mt-3" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>Loading groups...</Text>
             </View>
           ) : filtered.length === 0 ? (
-            <View className="bg-cardLight rounded-2xl p-10 items-center mb-6">
+            <View className={`rounded-2xl p-10 items-center mb-6 ${isDark ? 'bg-cardDark' : 'bg-cardLight'}`}>
               <Ionicons name="people-outline" size={48} color="#CCCCCC" />
-              <Text className="text-textSecondary text-center mt-3 font-medium">No groups found</Text>
-              <Text className="text-textSecondary text-xs text-center mt-1">
+              <Text className="text-center mt-3 font-medium" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>No groups found</Text>
+              <Text className="text-xs text-center mt-1" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>
                 {activeFilter !== 'All' ? 'Try a different filter or' : 'Be the first to'} add a group below
               </Text>
             </View>
@@ -180,14 +191,14 @@ export default function GroupsScreen() {
           )}
 
           {/* Add group CTA */}
-          <View className="bg-cardLight rounded-3xl p-5">
+          <View className={`rounded-3xl p-5 ${isDark ? 'bg-cardDark' : 'bg-cardLight'}`}>
             <View className="flex-row items-center mb-3">
-              <View className="bg-white rounded-2xl p-3 mr-3">
+              <View className={`rounded-2xl p-3 mr-3 ${isDark ? 'bg-cardDark' : 'bg-white'}`}>
                 <Ionicons name="add-circle-outline" size={22} color="#FF3131" />
               </View>
               <View className="flex-1">
-                <Text className="text-lg font-bold text-primary">List your WhatsApp group</Text>
-                <Text className="text-textSecondary leading-5">
+                <Text className="text-lg font-bold" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>List your WhatsApp group</Text>
+                <Text className="leading-5" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>
                   Add your existing group so coursemates can discover and join it.
                 </Text>
               </View>
@@ -215,6 +226,8 @@ export default function GroupsScreen() {
 }
 
 function GroupCard({ group, isOwner, onEdit }) {
+  const { isDark } = useTheme();
+
   const handleJoin = () => {
     if (!group.whatsappLink) {
       Alert.alert('No link', 'This group has not provided a join link.');
@@ -226,49 +239,49 @@ function GroupCard({ group, isOwner, onEdit }) {
   };
 
   return (
-    <View className="bg-white rounded-3xl p-5 border border-gray-100">
+    <View className={`rounded-3xl p-5 border ${isDark ? 'bg-cardDark border-gray-800' : 'bg-white border-gray-100'}`}>
       <View className="flex-row justify-between items-start mb-3">
         <View className="flex-1 pr-4">
-          <Text className="text-lg font-bold text-primary mb-1">{group.name}</Text>
+          <Text className="text-lg font-bold mb-1" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>{group.name}</Text>
           {group.description ? (
-            <Text className="text-textSecondary leading-5">{group.description}</Text>
+            <Text className="leading-5" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>{group.description}</Text>
           ) : null}
         </View>
         <View className="flex-row items-center" style={{ gap: 8 }}>
-          <View className="bg-cardLight px-3 py-1.5 rounded-full">
-            <Text className="text-primary text-xs font-semibold">{group.course}</Text>
+          <View className={`px-3 py-1.5 rounded-full ${isDark ? 'bg-cardDark' : 'bg-cardLight'}`}>
+            <Text className="text-xs font-semibold" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>{group.course}</Text>
           </View>
           {isOwner && (
             <TouchableOpacity
-              className="bg-cardLight w-8 h-8 rounded-full items-center justify-center"
+              className={`w-8 h-8 rounded-full items-center justify-center ${isDark ? 'bg-cardDark' : 'bg-cardLight'}`}
               onPress={onEdit}
               activeOpacity={0.7}
             >
-              <Ionicons name="create-outline" size={16} color="#090F43" />
+              <Ionicons name="create-outline" size={16} color={isDark ? '#FFFFFF' : '#090F43'} />
             </TouchableOpacity>
           )}
         </View>
       </View>
 
       {group.schedule ? (
-        <Text className="text-textSecondary text-sm mb-3">{group.schedule}</Text>
+        <Text className="text-sm mb-3" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>{group.schedule}</Text>
       ) : null}
 
       <View className="flex-row flex-wrap mb-4" style={{ gap: 8 }}>
-        <View className="bg-cardLight rounded-full px-3 py-1.5 flex-row items-center">
+        <View className={`rounded-full px-3 py-1.5 flex-row items-center ${isDark ? 'bg-cardDark' : 'bg-cardLight'}`}>
           <Ionicons name="logo-whatsapp" size={13} color="#25D366" />
-          <Text className="text-textSecondary text-xs ml-1.5">WhatsApp</Text>
+          <Text className="text-xs ml-1.5" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>WhatsApp</Text>
         </View>
         {group.adminName ? (
-          <View className="bg-cardLight rounded-full px-3 py-1.5 flex-row items-center">
-            <Ionicons name="shield-checkmark-outline" size={13} color="#666666" />
-            <Text className="text-textSecondary text-xs ml-1.5">Admin: {group.adminName}</Text>
+          <View className={`rounded-full px-3 py-1.5 flex-row items-center ${isDark ? 'bg-cardDark' : 'bg-cardLight'}`}>
+            <Ionicons name="shield-checkmark-outline" size={13} color={isDark ? '#9CA3AF' : '#666666'} />
+            <Text className="text-xs ml-1.5" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>Admin: {group.adminName}</Text>
           </View>
         ) : null}
         {group.university ? (
-          <View className="bg-cardLight rounded-full px-3 py-1.5 flex-row items-center">
-            <Ionicons name="school-outline" size={13} color="#666666" />
-            <Text className="text-textSecondary text-xs ml-1.5">{group.university}</Text>
+          <View className={`rounded-full px-3 py-1.5 flex-row items-center ${isDark ? 'bg-cardDark' : 'bg-cardLight'}`}>
+            <Ionicons name="school-outline" size={13} color={isDark ? '#9CA3AF' : '#666666'} />
+            <Text className="text-xs ml-1.5" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>{group.university}</Text>
           </View>
         ) : null}
       </View>
@@ -281,6 +294,7 @@ function GroupCard({ group, isOwner, onEdit }) {
 }
 
 function AddGroupModal({ visible, onClose, userData, firebaseUser, group }) {
+  const { isDark } = useTheme();
   const isEditing = !!group;
   const [name, setName] = useState('');
   const [course, setCourse] = useState('');
@@ -357,20 +371,20 @@ function AddGroupModal({ visible, onClose, userData, firebaseUser, group }) {
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View className="flex-1 bg-black/40 justify-end">
-        <View className="bg-background rounded-t-3xl px-6 pt-5 pb-8" style={{ maxHeight: '90%' }}>
+        <View className={`rounded-t-3xl px-6 pt-5 pb-8 ${isDark ? 'bg-backgroundDark' : 'bg-background'}`} style={{ maxHeight: '90%' }}>
           <View className="flex-row items-center justify-between mb-5">
             <View>
-              <Text className="text-2xl font-bold text-primary">{isEditing ? 'Edit Group' : 'Add WhatsApp Group'}</Text>
-              <Text className="text-textSecondary mt-1">
+              <Text className="text-2xl font-bold" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>{isEditing ? 'Edit Group' : 'Add WhatsApp Group'}</Text>
+              <Text className="mt-1" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>
                 {isEditing ? 'Update your group details.' : 'List your group so students can discover it.'}
               </Text>
             </View>
             <TouchableOpacity
-              className="w-10 h-10 rounded-full bg-cardLight items-center justify-center"
+              className={`w-10 h-10 rounded-full items-center justify-center ${isDark ? 'bg-cardDark' : 'bg-cardLight'}`}
               onPress={onClose}
               activeOpacity={0.85}
             >
-              <Ionicons name="close" size={20} color="#090F43" />
+              <Ionicons name="close" size={20} color={isDark ? '#FFFFFF' : '#090F43'} />
             </TouchableOpacity>
           </View>
 
@@ -385,8 +399,8 @@ function AddGroupModal({ visible, onClose, userData, firebaseUser, group }) {
             <FormField label="Posting Rhythm" placeholder="e.g. Daily revision drops" value={schedule} onChangeText={setSchedule} />
 
             <View className="flex-row mt-2 mb-2" style={{ gap: 12 }}>
-              <TouchableOpacity className="flex-1 bg-cardLight rounded-2xl py-3" onPress={onClose} activeOpacity={0.85}>
-                <Text className="text-primary text-center font-semibold">Cancel</Text>
+              <TouchableOpacity className={`flex-1 rounded-2xl py-3 ${isDark ? 'bg-cardDark' : 'bg-cardLight'}`} onPress={onClose} activeOpacity={0.85}>
+                <Text className="text-center font-semibold" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 className="flex-1 bg-accent rounded-2xl py-3"
@@ -415,11 +429,13 @@ function AddGroupModal({ visible, onClose, userData, firebaseUser, group }) {
 }
 
 function FormField({ label, placeholder, value, onChangeText, multiline }) {
+  const { isDark } = useTheme();
   return (
     <View className="mb-4">
-      <Text className="text-textPrimary mb-2 font-medium">{label}</Text>
+      <Text className="mb-2 font-medium" style={{ color: isDark ? '#FFFFFF' : '#000000' }}>{label}</Text>
       <TextInput
-        className="bg-cardLight px-4 py-3 rounded-2xl text-textPrimary"
+        className={`px-4 py-3 rounded-2xl ${isDark ? 'bg-cardDark' : 'bg-cardLight'}`}
+        style={{ color: isDark ? '#FFFFFF' : '#000000' }}
         placeholder={placeholder}
         placeholderTextColor="#9CA3AF"
         value={value}
