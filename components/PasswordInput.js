@@ -1,9 +1,7 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
-
-const REVEAL_DURATION_MS = 800;
 
 export default function PasswordInput({
   label,
@@ -15,21 +13,6 @@ export default function PasswordInput({
 }) {
   const { isDark } = useTheme();
   const [showPassword, setShowPassword] = useState(false);
-  const [typingReveal, setTypingReveal] = useState(false);
-  const revealTimeout = useRef(null);
-
-  useEffect(() => {
-    return () => {
-      if (revealTimeout.current) clearTimeout(revealTimeout.current);
-    };
-  }, []);
-
-  const handleChangeText = (text) => {
-    onChangeText(text);
-    setTypingReveal(true);
-    if (revealTimeout.current) clearTimeout(revealTimeout.current);
-    revealTimeout.current = setTimeout(() => setTypingReveal(false), REVEAL_DURATION_MS);
-  };
 
   return (
     <View className={containerClassName}>
@@ -41,8 +24,8 @@ export default function PasswordInput({
           placeholder={placeholder}
           placeholderTextColor="#9CA3AF"
           value={value}
-          onChangeText={handleChangeText}
-          secureTextEntry={!(showPassword || typingReveal)}
+          onChangeText={onChangeText}
+          secureTextEntry={!showPassword}
           editable={editable}
         />
         <TouchableOpacity

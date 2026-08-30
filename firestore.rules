@@ -54,8 +54,12 @@ service cloud.firestore {
     }
 
     match /groups/{groupId} {
+      // Only tutor accounts may list a WhatsApp group
+      function isTutor() {
+        return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.accountType == 'tutor';
+      }
       allow read: if signedIn();
-      allow create: if signedIn() && request.resource.data.createdBy == request.auth.uid;
+      allow create: if signedIn() && request.resource.data.createdBy == request.auth.uid && isTutor();
       allow update, delete: if signedIn() && resource.data.createdBy == request.auth.uid;
     }
   }

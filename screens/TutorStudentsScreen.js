@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, SafeAreaView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, SafeAreaView, TouchableOpacity, ActivityIndicator, Image } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useUser } from '../context/UserContext';
 import { useTheme } from '../context/ThemeContext';
 import { subscribeTutorSessions, SESSION_STATUS } from '../services/sessionService';
+import { getUserAvatars } from '../services/userService';
+import { openWhatsApp } from '../utils/whatsapp';
 
 const FILTERS = ['All', 'Active', 'Completed'];
 const COLORS = ['#FF3131', '#FFB800', '#4CAF50', '#2196F3', '#9C27B0', '#090F43'];
@@ -15,6 +17,7 @@ export default function TutorStudentsScreen() {
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState('All');
+  const [avatars, setAvatars] = useState({});
 
   useEffect(() => {
     if (!firebaseUser?.uid) {
@@ -34,6 +37,16 @@ export default function TutorStudentsScreen() {
     );
     return unsub;
   }, [firebaseUser?.uid]);
+
+  // Sessions only carry a denormalized name/whatsapp for the student, not their
+  // avatar (it can change, and it's a large blob we don't want on every session).
+  useEffect(() => {
+    const studentIds = sessions
+      .filter((s) => s.status === SESSION_STATUS.ACCEPTED || s.status === SESSION_STATUS.COMPLETED)
+      .map((s) => s.studentId);
+    if (studentIds.length === 0) return;
+    getUserAvatars(studentIds).then(setAvatars).catch(() => {});
+  }, [sessions]);
 
   // Deduplicate into student records, aggregating their sessions
   const studentMap = {};
@@ -63,6 +76,7 @@ export default function TutorStudentsScreen() {
       lastCourse: lastSession?.course || '',
       sessionCount: student.sessions.length,
       lastDate: lastSession?.date || '',
+      whatsapp: lastSession?.studentWhatsapp || '',
     };
   });
 
@@ -96,7 +110,7 @@ export default function TutorStudentsScreen() {
               key={filter}
               onPress={() => setActiveFilter(filter)}
               className="px-4 py-2 rounded-full"
-              style={{ backgroundColor: activeFilter === filter ? '#FF3131' : (isDark ? '#1A2065' : '#F3F4F6') }}
+              style={{ backgroundColor: activeFilter === filter ? '#FF3131' : (isDark ? '#2A2A2A' : '#F3F4F6') }}
             >
               <Text className="font-semibold text-sm" style={{ color: activeFilter === filter ? '#FFFFFF' : (isDark ? '#9CA3AF' : '#374151') }}>
                 {filter}
@@ -118,13 +132,17 @@ export default function TutorStudentsScreen() {
               return (
                 <View key={student.studentId} className={`rounded-2xl p-4 border ${isDark ? 'bg-cardDark border-gray-800' : 'bg-white border-gray-100'}`}>
                   <View className="flex-row items-center">
-                    <View style={{ width: 48, height: 48, borderRadius: 14, backgroundColor: color + '20', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
-                      <Text style={{ color, fontWeight: '700', fontSize: 15 }}>{initials}</Text>
+                    <View style={{ width: 48, height: 48, borderRadius: 14, backgroundColor: color + '20', alignItems: 'center', justifyContent: 'center', marginRight: 12, overflow: 'hidden' }}>
+                      {avatars[student.studentId] ? (
+                        <Image source={{ uri: avatars[student.studentId] }} style={{ width: 48, height: 48 }} />
+                      ) : (
+                        <Text style={{ color, fontWeight: '700', fontSize: 15 }}>{initials}</Text>
+                      )}
                     </View>
                     <View className="flex-1">
                       <View className="flex-row items-center justify-between">
                         <Text className="text-base font-bold" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>{student.studentName}</Text>
-                        <View className="px-2 py-0.5 rounded-full" style={{ backgroundColor: student.status === 'active' ? '#4CAF5020' : (isDark ? '#1A2065' : '#F3F4F6') }}>
+                        <View className="px-2 py-0.5 rounded-full" style={{ backgroundColor: student.status === 'active' ? '#4CAF5020' : (isDark ? '#2A2A2A' : '#F3F4F6') }}>
                           <Text className="text-xs font-semibold" style={{ color: student.status === 'active' ? '#4CAF50' : '#9CA3AF' }}>
                             {student.status === 'active' ? 'Active' : 'Completed'}
                           </Text>
@@ -148,6 +166,18 @@ export default function TutorStudentsScreen() {
                       </View>
                     ) : null}
                   </View>
+
+                  {student.whatsapp ? (
+                    <TouchableOpacity
+                      className="flex-row items-center justify-center py-2.5 rounded-xl mt-3"
+                      style={{ backgroundColor: '#25D36618' }}
+                      onPress={() => openWhatsApp(student.whatsapp)}
+                      activeOpacity={0.85}
+                    >
+                      <Ionicons name="logo-whatsapp" size={16} color="#128C7E" />
+                      <Text className="text-sm font-semibold ml-2" style={{ color: '#128C7E' }}>Message on WhatsApp</Text>
+                    </TouchableOpacity>
+                  ) : null}
                 </View>
               );
             })

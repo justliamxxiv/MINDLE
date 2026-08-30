@@ -1,25 +1,25 @@
 import React, { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, ScrollView,
-  Alert, ActivityIndicator, SafeAreaView,
+  Alert, ActivityIndicator, SafeAreaView, Platform, Modal,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useUser } from '../context/UserContext';
 import { useTheme } from '../context/ThemeContext';
 import { requestSession } from '../services/sessionService';
 import SearchableSelect from '../components/SearchableSelect';
+import { TIME_SLOTS, COURSE_CATALOG } from '../utils/academicOptions';
 
 const SESSION_TYPES = [
   { label: '1-on-1 (Private)', value: '1-on-1' },
   { label: 'Group Session', value: 'group' },
 ];
 
-const TIME_SLOTS = [
-  '8:00 AM', '9:00 AM', '10:00 AM', '11:00 AM',
-  '12:00 PM', '1:00 PM', '2:00 PM', '3:00 PM',
-  '4:00 PM', '5:00 PM', '6:00 PM', '7:00 PM', '8:00 PM',
-].map((t) => ({ label: t, value: t }));
+function formatDate(d) {
+  return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+}
 
 export default function RequestSessionScreen({ navigation, route }) {
   const { tutor } = route.params;
@@ -27,14 +27,24 @@ export default function RequestSessionScreen({ navigation, route }) {
   const { isDark } = useTheme();
 
   const [course, setCourse] = useState('');
-  const [date, setDate] = useState('');
+  const [date, setDate] = useState(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [time, setTime] = useState('');
   const [sessionType, setSessionType] = useState('1-on-1');
   const [maxStudents, setMaxStudents] = useState('5');
   const [note, setNote] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const canSubmit = course.trim() && date.trim() && time && !loading;
+  const canSubmit = course.trim() && date && time && !loading;
+
+  const handleDateChange = (event, selected) => {
+    if (Platform.OS === 'android') {
+      setShowDatePicker(false);
+      if (event.type === 'set' && selected) setDate(selected);
+    } else if (selected) {
+      setDate(selected);
+    }
+  };
 
   const handleSubmit = async () => {
     setLoading(true);
@@ -47,7 +57,7 @@ export default function RequestSessionScreen({ navigation, route }) {
         studentName: userData.name,
         studentWhatsapp: userData.whatsappNumber,
         course: course.trim(),
-        date: date.trim(),
+        date: formatDate(date),
         time,
         type: sessionType,
         maxStudents: sessionType === 'group' ? parseInt(maxStudents) || 5 : 1,
@@ -101,32 +111,77 @@ export default function RequestSessionScreen({ navigation, route }) {
           </View>
 
           {/* Course */}
-          <View>
-            <Text className="text-sm mb-1 font-medium" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>Course / Subject *</Text>
-            <TextInput
-              className={`px-4 py-3 rounded-2xl ${isDark ? 'bg-cardDark' : 'bg-cardLight'}`}
-              style={{ color: isDark ? '#FFFFFF' : '#090F43' }}
-              placeholder="e.g. PHY 212, Calculus, Organic Chemistry"
-              placeholderTextColor="#9CA3AF"
-              value={course}
-              onChangeText={setCourse}
-              editable={!loading}
-            />
-          </View>
+          <SearchableSelect
+            label="Course / Subject *"
+            value={course}
+            placeholder="Select a course"
+            modalTitle="Select Course"
+            searchPlaceholder="Search courses..."
+            options={COURSE_CATALOG}
+            onChange={setCourse}
+            disabled={loading}
+            containerClassName=""
+          />
 
           {/* Date */}
           <View>
             <Text className="text-sm mb-1 font-medium" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>Preferred Date *</Text>
-            <TextInput
-              className={`px-4 py-3 rounded-2xl ${isDark ? 'bg-cardDark' : 'bg-cardLight'}`}
-              style={{ color: isDark ? '#FFFFFF' : '#090F43' }}
-              placeholder="e.g. Monday 19 May, or this weekend"
-              placeholderTextColor="#9CA3AF"
-              value={date}
-              onChangeText={setDate}
-              editable={!loading}
-            />
+            <TouchableOpacity
+              className={`px-4 py-3 rounded-2xl flex-row items-center justify-between ${isDark ? 'bg-cardDark' : 'bg-cardLight'}`}
+              onPress={() => setShowDatePicker(true)}
+              disabled={loading}
+              activeOpacity={0.7}
+            >
+              <Text style={{ color: date ? (isDark ? '#FFFFFF' : '#090F43') : '#9CA3AF' }}>
+                {date ? formatDate(date) : 'Select a date'}
+              </Text>
+              <Ionicons name="calendar-outline" size={18} color="#9CA3AF" />
+            </TouchableOpacity>
           </View>
+
+          {Platform.OS === 'android' && showDatePicker && (
+            <DateTimePicker
+              value={date || new Date()}
+              mode="date"
+              display="default"
+              minimumDate={new Date()}
+              onChange={handleDateChange}
+            />
+          )}
+
+          {Platform.OS === 'ios' && (
+            <Modal visible={showDatePicker} transparent animationType="slide" onRequestClose={() => setShowDatePicker(false)}>
+              <View className="flex-1 bg-black/40 justify-end">
+                <View className={`rounded-t-3xl px-6 pt-5 pb-8 ${isDark ? 'bg-backgroundDark' : 'bg-background'}`}>
+                  <View className="flex-row items-center justify-between mb-4">
+                    <Text className="text-2xl font-bold" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>Select Date</Text>
+                    <TouchableOpacity
+                      className={`w-10 h-10 rounded-full items-center justify-center ${isDark ? 'bg-cardDark' : 'bg-cardLight'}`}
+                      onPress={() => setShowDatePicker(false)}
+                      activeOpacity={0.85}
+                    >
+                      <Ionicons name="close" size={20} color={isDark ? '#FFFFFF' : '#090F43'} />
+                    </TouchableOpacity>
+                  </View>
+                  <DateTimePicker
+                    value={date || new Date()}
+                    mode="date"
+                    display="inline"
+                    minimumDate={new Date()}
+                    themeVariant={isDark ? 'dark' : 'light'}
+                    onChange={handleDateChange}
+                  />
+                  <TouchableOpacity
+                    className="bg-accent py-3 rounded-xl mt-4"
+                    onPress={() => setShowDatePicker(false)}
+                    activeOpacity={0.85}
+                  >
+                    <Text className="text-white text-center font-semibold">Done</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </Modal>
+          )}
 
           {/* Time */}
           <SearchableSelect

@@ -36,7 +36,7 @@ function buildScreenOptions(isDark) {
     tabBarActiveTintColor: '#FF3131',
     tabBarInactiveTintColor: isDark ? '#9CA3AF' : '#666666',
     tabBarStyle: {
-      backgroundColor: isDark ? '#0F1554' : '#FFFFFF',
+      backgroundColor: isDark ? '#1A1A1A' : '#FFFFFF',
       borderTopWidth: 1,
       borderTopColor: isDark ? '#1F2937' : '#F5F5F5',
       paddingBottom: 20,

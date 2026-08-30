@@ -1,4 +1,4 @@
-import { doc, runTransaction } from 'firebase/firestore';
+import { doc, getDoc, runTransaction } from 'firebase/firestore';
 import { db } from '../config/firebaseConfig';
 import { normalizePhone } from '../utils/whatsapp';
 
@@ -37,4 +37,22 @@ export async function updateUserWithUniquePhone(uid, newNumber, oldNumber, updat
       { merge: true }
     );
   });
+}
+
+// Session docs only store a denormalized name/whatsapp for the other party,
+// not their avatar (it can change, and it's a large base64 blob we don't want
+// copied onto every session). Fetch it live from their user doc instead.
+export async function getUserAvatars(uids) {
+  const uniqueIds = [...new Set(uids)].filter(Boolean);
+  const entries = await Promise.all(
+    uniqueIds.map(async (uid) => {
+      try {
+        const snap = await getDoc(doc(db, 'users', uid));
+        return [uid, snap.exists() ? snap.data()?.avatar || null : null];
+      } catch {
+        return [uid, null];
+      }
+    })
+  );
+  return Object.fromEntries(entries);
 }

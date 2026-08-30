@@ -9,7 +9,7 @@ import { ThemeProvider, useTheme } from './context/ThemeContext';
 const AppLightTheme = { ...DefaultTheme, colors: { ...DefaultTheme.colors, background: '#FFFFFF' } };
 const AppDarkTheme = {
   ...DarkTheme,
-  colors: { ...DarkTheme.colors, background: '#090F43', card: '#0F1554', text: '#FFFFFF', border: '#1F2937' },
+  colors: { ...DarkTheme.colors, background: '#000000', card: '#1A1A1A', text: '#FFFFFF', border: '#1F2937' },
 };
 
 // Import screens
@@ -28,7 +28,7 @@ function RootNavigator() {
 
   if (loading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: isDark ? '#090F43' : '#FFFFFF' }}>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: isDark ? '#000000' : '#FFFFFF' }}>
         <ActivityIndicator size="large" color="#FF3131" />
       </View>
     );

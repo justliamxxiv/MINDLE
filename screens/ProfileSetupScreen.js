@@ -7,8 +7,10 @@ import { useTheme } from '../context/ThemeContext';
 import { updateUserWithUniquePhone } from '../services/userService';
 import { normalizePhone } from '../utils/whatsapp';
 import { UNIVERSITIES, COURSES, YEAR_OF_STUDY_OPTIONS } from '../utils/academicOptions';
+import { buildAvailabilityString } from '../utils/availability';
 import SearchableSelect from '../components/SearchableSelect';
 import PhoneInput from '../components/PhoneInput';
+import AvailabilityPicker from '../components/AvailabilityPicker';
 
 export default function ProfileSetupScreen({ navigation, route }) {
   const { refreshUserData, userData } = useUser();
@@ -27,8 +29,11 @@ export default function ProfileSetupScreen({ navigation, route }) {
   // Tutor-specific fields
   const [bio, setBio] = useState('');
   const [hourlyRate, setHourlyRate] = useState('');
-  const [availability, setAvailability] = useState('');
-  
+  const [availableDays, setAvailableDays] = useState([]);
+  const [hoursMode, setHoursMode] = useState('always'); // 'always' | 'selected' | 'appointment'
+  const [fromTime, setFromTime] = useState('');
+  const [toTime, setToTime] = useState('');
+
   const [loading, setLoading] = useState(false);
 
   const handleContinue = async () => {
@@ -61,8 +66,12 @@ export default function ProfileSetupScreen({ navigation, route }) {
         Alert.alert('Error', 'Please write a short bio about yourself');
         return;
       }
-      if (!availability.trim()) {
-        Alert.alert('Error', 'Please specify your availability');
+      if (availableDays.length === 0) {
+        Alert.alert('Error', 'Please select at least one available day');
+        return;
+      }
+      if (hoursMode === 'selected' && (!fromTime || !toTime)) {
+        Alert.alert('Error', 'Please set your available hours');
         return;
       }
     }
@@ -97,7 +106,7 @@ export default function ProfileSetupScreen({ navigation, route }) {
       if (accountType === 'tutor') {
         profileData.bio = bio.trim();
         profileData.hourlyRate = hourlyRate.trim();
-        profileData.availability = availability.trim();
+        profileData.availability = buildAvailabilityString({ days: availableDays, hoursMode, fromTime, toTime });
         profileData.rating = 0;
         profileData.reviewsCount = 0;
       }
@@ -140,7 +149,7 @@ export default function ProfileSetupScreen({ navigation, route }) {
 
           <TouchableOpacity
             className={`flex-row items-center p-4 rounded-xl mb-3 border-2 ${
-              accountType === 'student' ? 'bg-accent border-accent' : isDark ? 'bg-primary border-gray-700' : 'bg-cardLight border-gray-300'
+              accountType === 'student' ? 'bg-accent border-accent' : isDark ? 'bg-cardDark border-gray-700' : 'bg-cardLight border-gray-300'
             }`}
             onPress={() => setAccountType('student')}
             disabled={loading}
@@ -164,7 +173,7 @@ export default function ProfileSetupScreen({ navigation, route }) {
 
           <TouchableOpacity
             className={`flex-row items-center p-4 rounded-xl border-2 ${
-              accountType === 'tutor' ? 'bg-accent border-accent' : isDark ? 'bg-primary border-gray-700' : 'bg-cardLight border-gray-300'
+              accountType === 'tutor' ? 'bg-accent border-accent' : isDark ? 'bg-cardDark border-gray-700' : 'bg-cardLight border-gray-300'
             }`}
             onPress={() => setAccountType('tutor')}
             disabled={loading}
@@ -274,21 +283,18 @@ export default function ProfileSetupScreen({ navigation, route }) {
             </View>
 
             {/* Availability */}
-            <View className="mb-6">
-              <Text className="mb-2 font-medium" style={{ color: isDark ? '#FFFFFF' : '#000000' }}>Availability</Text>
-              <TextInput
-                className={`px-4 py-4 rounded-xl ${isDark ? 'bg-cardDark' : 'bg-cardLight'}`}
-                style={{ color: isDark ? '#FFFFFF' : '#000000' }}
-                placeholder="e.g., Weekdays 4pm-8pm, Weekends anytime"
-                placeholderTextColor="#9CA3AF"
-                value={availability}
-                onChangeText={setAvailability}
-                multiline
-                numberOfLines={2}
-                textAlignVertical="top"
-                editable={!loading}
-              />
-            </View>
+            <AvailabilityPicker
+              days={availableDays}
+              onDaysChange={setAvailableDays}
+              hoursMode={hoursMode}
+              onHoursModeChange={setHoursMode}
+              fromTime={fromTime}
+              onFromTimeChange={setFromTime}
+              toTime={toTime}
+              onToTimeChange={setToTime}
+              isDark={isDark}
+              disabled={loading}
+            />
           </>
         )}
 

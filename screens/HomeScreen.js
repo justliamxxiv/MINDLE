@@ -2,8 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, SafeAreaView, TouchableOpacity, Dimensions, Alert, Modal, Platform, ActionSheetIOS, Linking } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
 import { useUser } from '../context/UserContext';
 import { useTheme } from '../context/ThemeContext';
 import {
@@ -11,6 +9,7 @@ import {
 } from '../services/sessionService';
 import { subscribeGroups } from '../services/groupService';
 import { openWhatsApp } from '../utils/whatsapp';
+import { computeTutorProgress } from '../utils/tutorProgress';
 
 const { width } = Dimensions.get('window');
 
@@ -91,7 +90,7 @@ export default function HomeScreen({ navigation }) {
                 {
                   title: `Rate ${session.tutorName}`,
                   message: 'How would you rate this session?',
-                  options: ['Cancel', '⭐ 1 — Poor', '⭐⭐ 2 — Fair', '⭐⭐⭐ 3 — Good', '⭐⭐⭐⭐ 4 — Great', '⭐⭐⭐⭐⭐ 5 — Excellent', 'Skip rating'],
+                  options: ['Cancel', '1 — Poor', '2 — Fair', '3 — Good', '4 — Great', '5 — Excellent', 'Skip rating'],
                   cancelButtonIndex: 0,
                 },
                 async (index) => {
@@ -146,21 +145,13 @@ export default function HomeScreen({ navigation }) {
     );
   };
 
-  // "Your Progress" = tutors you currently have active sessions with (not yet completed)
-  const activeSessionTutorMap = {};
-  sessions
-    .filter((s) => [SESSION_STATUS.ACCEPTED, SESSION_STATUS.TUTOR_CONFIRMED].includes(s.status))
-    .forEach((s) => {
-      if (!activeSessionTutorMap[s.tutorId]) {
-        activeSessionTutorMap[s.tutorId] = { tutorName: s.tutorName, course: s.course, count: 0 };
-      }
-      activeSessionTutorMap[s.tutorId].count += 1;
-    });
-  const tutorProgress = Object.entries(activeSessionTutorMap).map(([id, t], i) => ({
-    id,
+  // "Your Progress" = every tutor you've had confirmed sessions with, active or completed
+  const tutorProgress = computeTutorProgress(sessions).map((t, i) => ({
+    id: t.tutorId,
     course: t.course,
     tutor: t.tutorName,
     sessions: t.count,
+    hasActive: t.hasActive,
     color: SESSION_COLORS[i % SESSION_COLORS.length],
   }));
 
@@ -272,7 +263,12 @@ export default function HomeScreen({ navigation }) {
                     <View className={`h-2 rounded-full flex-1 mr-3 ${isDark ? 'bg-gray-800' : 'bg-gray-100'}`}>
                       <View className="h-2 rounded-full w-full" style={{ backgroundColor: item.color, opacity: 0.3 }} />
                     </View>
-                    <Text className="text-xs font-semibold" style={{ color: item.color }}>In progress</Text>
+                    <Text
+                      className="text-xs font-semibold"
+                      style={{ color: item.hasActive ? item.color : (isDark ? '#9CA3AF' : '#666666') }}
+                    >
+                      {item.hasActive ? 'In progress' : 'Completed'}
+                    </Text>
                   </View>
                 </View>
               ))}
@@ -468,56 +464,27 @@ export default function HomeScreen({ navigation }) {
               ))}
             </View>
           ) : (
-            <LinearGradient
-              colors={['#FFC93C', '#FF6B4A', '#E0326B', '#6C2BD9', '#090F43']}
-              locations={[0, 0.3, 0.55, 0.8, 1]}
-              start={{ x: 0, y: 1 }}
-              end={{ x: 1, y: 0 }}
-              style={{ borderRadius: 16, padding: 16, overflow: 'hidden' }}
+            <View
+              className={`rounded-3xl p-6 items-center ${isDark ? '' : 'bg-primary'}`}
+              style={isDark ? { backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.35)' } : undefined}
             >
-              {/* Decorative blobs */}
-              <View style={{ position: 'absolute', width: 130, height: 130, borderRadius: 65, backgroundColor: 'rgba(255,255,255,0.15)', top: -40, left: -30 }} />
-              <View style={{ position: 'absolute', width: 90, height: 90, borderRadius: 45, backgroundColor: 'rgba(255,255,255,0.12)', bottom: -25, right: 10 }} />
-              <View style={{ position: 'absolute', width: 60, height: 60, borderRadius: 30, backgroundColor: 'rgba(255,255,255,0.18)', top: 10, right: -15 }} />
-              <View style={{ position: 'absolute', width: 45, height: 45, borderRadius: 23, backgroundColor: 'rgba(255,255,255,0.15)', bottom: 15, left: 25 }} />
-              <View style={{ position: 'absolute', width: 150, height: 150, borderRadius: 75, backgroundColor: 'rgba(9,15,67,0.45)', top: -60, right: -60 }} />
-
-              <BlurView
-                intensity={40}
-                tint="light"
-                style={{
-                  borderRadius: 20,
-                  padding: 24,
-                  alignItems: 'center',
-                  overflow: 'hidden',
-                  borderWidth: 1,
-                  borderColor: 'rgba(255,255,255,0.35)',
-                  backgroundColor: 'rgba(255,255,255,0.08)',
-                }}
+              <View style={{ backgroundColor: 'rgba(255,255,255,0.15)' }} className="rounded-2xl p-3 mb-3">
+                <Ionicons name="people" size={28} color="#FFFFFF" />
+              </View>
+              <Text className="text-white text-lg font-bold mb-2">
+                Find Your Study Crew
+              </Text>
+              <Text className="text-white text-center text-sm opacity-90 mb-4">
+                Join groups in your courses and study smarter together
+              </Text>
+              <TouchableOpacity
+                className="bg-white px-6 py-3 rounded-xl"
+                onPress={() => navigation.navigate('StudentTabs', { screen: 'Groups' })}
+                activeOpacity={0.8}
               >
-                <Ionicons name="people" size={48} color="#FFFFFF" />
-                <Text className="text-white text-lg font-bold mt-3 mb-2">
-                  Find Your Study Crew
-                </Text>
-                <Text className="text-white text-center text-sm opacity-90 mb-4">
-                  Join groups in your courses and study smarter together
-                </Text>
-                <TouchableOpacity
-                  style={{
-                    backgroundColor: 'rgba(255,255,255,0.25)',
-                    borderWidth: 1,
-                    borderColor: 'rgba(255,255,255,0.5)',
-                    paddingHorizontal: 24,
-                    paddingVertical: 12,
-                    borderRadius: 12,
-                  }}
-                  onPress={() => navigation.navigate('StudentTabs', { screen: 'Groups' })}
-                  activeOpacity={0.8}
-                >
-                  <Text className="text-white font-bold">Browse Groups</Text>
-                </TouchableOpacity>
-              </BlurView>
-            </LinearGradient>
+                <Text className="text-accent font-bold">Browse Groups</Text>
+              </TouchableOpacity>
+            </View>
           )}
         </View>
 
@@ -527,7 +494,7 @@ export default function HomeScreen({ navigation }) {
           <View className={`rounded-2xl p-5 shadow-sm border ${isDark ? 'bg-cardDark border-gray-800' : 'bg-white border-gray-100'}`}>
             <View className="flex-row justify-between items-center mb-4">
               <View className="items-center flex-1">
-                <Text className="text-2xl font-bold" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>{Object.keys(activeSessionTutorMap).length}</Text>
+                <Text className="text-2xl font-bold" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>{tutorProgress.length}</Text>
                 <Text className="text-xs mt-1" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>Tutors</Text>
               </View>
               <View className={`w-px h-10 ${isDark ? 'bg-gray-700' : 'bg-gray-200'}`} />
@@ -560,7 +527,11 @@ export default function HomeScreen({ navigation }) {
                   onPress={() => handleRatingSubmit(rating)}
                   activeOpacity={0.85}
                 >
-                  <Text className="text-lg mr-3">{'⭐'.repeat(rating)}</Text>
+                  <View className="flex-row mr-3">
+                    {[...Array(rating)].map((_, i) => (
+                      <Ionicons key={i} name="star" size={16} color="#FFB800" />
+                    ))}
+                  </View>
                   <Text className="font-semibold" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>{rating} — {['', 'Poor', 'Fair', 'Good', 'Great', 'Excellent'][rating]}</Text>
                 </TouchableOpacity>
               ))}

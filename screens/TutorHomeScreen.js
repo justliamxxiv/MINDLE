@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, SafeAreaView, TouchableOpacity, Switch, Alert, ActivityIndicator, Modal, Platform, ActionSheetIOS } from 'react-native';
+import { View, Text, ScrollView, SafeAreaView, TouchableOpacity, Switch, Alert, ActivityIndicator, Modal, Platform, ActionSheetIOS, Image } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { doc, updateDoc } from 'firebase/firestore';
@@ -9,19 +9,34 @@ import { useTheme } from '../context/ThemeContext';
 import {
   subscribeTutorSessions, updateSessionStatus, tutorConfirmSession, cancelSession, SESSION_STATUS,
 } from '../services/sessionService';
+import { getUserAvatars } from '../services/userService';
 import { openWhatsApp } from '../utils/whatsapp';
-
-const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+import { buildAvailabilityString, parseAvailabilityString } from '../utils/availability';
+import AvailabilityPicker from '../components/AvailabilityPicker';
 
 export default function TutorHomeScreen({ navigation }) {
   const { userData, firebaseUser, refreshUserData } = useUser();
   const { isDark } = useTheme();
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isAvailable, setIsAvailable] = useState(userData?.isAvailable ?? true);
-  const [activeDays, setActiveDays] = useState(userData?.activeDays ?? ['Mon', 'Wed', 'Fri']);
+  const [availableDays, setAvailableDays] = useState([]);
+  const [hoursMode, setHoursMode] = useState('always');
+  const [fromTime, setFromTime] = useState('');
+  const [toTime, setToTime] = useState('');
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [scoreModal, setScoreModal] = useState({ visible: false, sessionId: null });
+  const [avatars, setAvatars] = useState({});
+
+  // Keep the local picker state in sync with whatever was last saved
+  // (e.g. edited from the Edit Profile screen instead of here).
+  useEffect(() => {
+    const parsed = parseAvailabilityString(userData?.availability);
+    setAvailableDays(parsed.days);
+    setHoursMode(parsed.hoursMode);
+    setFromTime(parsed.fromTime);
+    setToTime(parsed.toTime);
+  }, [userData?.availability]);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 60000);
@@ -47,6 +62,14 @@ export default function TutorHomeScreen({ navigation }) {
     return unsub;
   }, [firebaseUser?.uid]);
 
+  // Sessions only carry a denormalized name/whatsapp for the student, not their
+  // avatar (it can change, and it's a large blob we don't want on every session).
+  useEffect(() => {
+    const studentIds = sessions.map((s) => s.studentId);
+    if (studentIds.length === 0) return;
+    getUserAvatars(studentIds).then(setAvatars).catch(() => {});
+  }, [sessions]);
+
   const getGreeting = () => {
     const hour = currentTime.getHours();
     if (hour < 12) return 'Good morning';
@@ -56,10 +79,10 @@ export default function TutorHomeScreen({ navigation }) {
 
   const firstName = userData?.name?.split(' ')[0] || 'Tutor';
 
-  const saveAvailability = async (available, days) => {
+  const saveAvailability = async (updates) => {
     if (!firebaseUser?.uid) return;
     try {
-      await updateDoc(doc(db, 'users', firebaseUser.uid), { isAvailable: available, activeDays: days });
+      await updateDoc(doc(db, 'users', firebaseUser.uid), updates);
       await refreshUserData();
     } catch {
       Alert.alert('Error', 'Could not save availability. Please try again.');
@@ -68,15 +91,18 @@ export default function TutorHomeScreen({ navigation }) {
 
   const toggleAvailable = (value) => {
     setIsAvailable(value);
-    saveAvailability(value, activeDays);
+    saveAvailability({ isAvailable: value });
   };
 
-  const toggleDay = (day) => {
-    const updated = activeDays.includes(day)
-      ? activeDays.filter((d) => d !== day)
-      : [...activeDays, day];
-    setActiveDays(updated);
-    saveAvailability(isAvailable, updated);
+  // Same `availability` string field the Edit Profile screen reads/writes,
+  // so changes made in either place show up in both.
+  const updateAvailability = (next) => {
+    const merged = { days: availableDays, hoursMode, fromTime, toTime, ...next };
+    setAvailableDays(merged.days);
+    setHoursMode(merged.hoursMode);
+    setFromTime(merged.fromTime);
+    setToTime(merged.toTime);
+    saveAvailability({ availability: buildAvailabilityString(merged) });
   };
 
   const handleAccept = async (sessionId) => {
@@ -129,7 +155,7 @@ export default function TutorHomeScreen({ navigation }) {
         {
           title: 'Score this student (optional)',
           message: 'Rate their performance — they\'ll see their average score on their home screen.',
-          options: ['Cancel', '⭐ 1 — Needs improvement', '⭐⭐ 2 — Below average', '⭐⭐⭐ 3 — Average', '⭐⭐⭐⭐ 4 — Good', '⭐⭐⭐⭐⭐ 5 — Excellent', 'Skip score'],
+          options: ['Cancel', '1 — Needs improvement', '2 — Below average', '3 — Average', '4 — Good', '5 — Excellent', 'Skip score'],
           cancelButtonIndex: 0,
         },
         async (index) => {
@@ -220,24 +246,18 @@ export default function TutorHomeScreen({ navigation }) {
                 thumbColor="#FFFFFF"
               />
             </View>
-            <Text className="text-xs mb-2 font-medium" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>AVAILABLE DAYS</Text>
-            <View className="flex-row justify-between">
-              {DAYS.map((day) => (
-                <TouchableOpacity
-                  key={day}
-                  onPress={() => toggleDay(day)}
-                  style={{
-                    width: 38, height: 38, borderRadius: 19,
-                    backgroundColor: activeDays.includes(day) ? '#FF3131' : (isDark ? '#1A2065' : '#F3F4F6'),
-                    alignItems: 'center', justifyContent: 'center',
-                  }}
-                >
-                  <Text style={{ fontSize: 11, fontWeight: '600', color: activeDays.includes(day) ? '#FFFFFF' : (isDark ? '#9CA3AF' : '#6B7280') }}>
-                    {day}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+            <AvailabilityPicker
+              days={availableDays}
+              onDaysChange={(days) => updateAvailability({ days })}
+              hoursMode={hoursMode}
+              onHoursModeChange={(mode) => updateAvailability({ hoursMode: mode })}
+              fromTime={fromTime}
+              onFromTimeChange={(t) => updateAvailability({ fromTime: t })}
+              toTime={toTime}
+              onToTimeChange={(t) => updateAvailability({ toTime: t })}
+              isDark={isDark}
+              showHours={false}
+            />
           </View>
         </View>
 
@@ -260,10 +280,14 @@ export default function TutorHomeScreen({ navigation }) {
                   {pending.map((session) => (
                     <View key={session.id} className={`rounded-2xl p-4 border ${isDark ? 'bg-cardDark border-gray-800' : 'bg-white border-gray-100'}`}>
                       <View className="flex-row items-start mb-3">
-                        <View className={`w-10 h-10 rounded-xl items-center justify-center mr-3 ${isDark ? 'bg-cardDark' : 'bg-cardLight'}`}>
-                          <Text className="font-bold text-sm" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>
-                            {session.studentName?.split(' ').map((p) => p[0]).join('').slice(0, 2)}
-                          </Text>
+                        <View className={`w-10 h-10 rounded-xl items-center justify-center mr-3 ${isDark ? 'bg-cardDark' : 'bg-cardLight'}`} style={{ overflow: 'hidden' }}>
+                          {avatars[session.studentId] ? (
+                            <Image source={{ uri: avatars[session.studentId] }} style={{ width: 40, height: 40 }} />
+                          ) : (
+                            <Text className="font-bold text-sm" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>
+                              {session.studentName?.split(' ').map((p) => p[0]).join('').slice(0, 2)}
+                            </Text>
+                          )}
                         </View>
                         <View className="flex-1">
                           <Text className="font-bold" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>{session.studentName}</Text>
@@ -401,7 +425,11 @@ export default function TutorHomeScreen({ navigation }) {
                   onPress={() => handleScoreSubmit(score)}
                   activeOpacity={0.85}
                 >
-                  <Text className="text-lg mr-3">{'⭐'.repeat(score)}</Text>
+                  <View className="flex-row mr-3">
+                    {[...Array(score)].map((_, i) => (
+                      <Ionicons key={i} name="star" size={16} color="#FFB800" />
+                    ))}
+                  </View>
                   <Text className="font-semibold" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>{score} — {['', 'Needs improvement', 'Below average', 'Average', 'Good', 'Excellent'][score]}</Text>
                 </TouchableOpacity>
               ))}

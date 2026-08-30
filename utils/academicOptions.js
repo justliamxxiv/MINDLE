@@ -70,3 +70,110 @@ export const YEAR_OF_STUDY_OPTIONS = [
   { label: '400 Level', value: '400' },
   { label: '500 Level', value: '500' },
 ];
+
+export const COURSE_CATALOG = [
+  // 100 Level
+  'CSC 101 — Introduction to Computer Science',
+  'CSC 102 — Problem Solving Techniques',
+  'CSC 103 — Introduction to Computing',
+  'CSC 107 — Computer Science Practical',
+  'CSC 108 — Introduction to ICT',
+  'CSC 109 — Programming Fundamentals',
+  'CSC 110 — Digital Logic Design',
+  'CSC 111 — Computer Appreciation',
+  'CSC 112 — Software Applications',
+  // 200 Level
+  'CSC 201 — Programming I',
+  'CSC 202 — Programming II',
+  'CSC 203 — Data Structures',
+  'CSC 204 — Computer Organization',
+  'CSC 205 — Discrete Mathematics',
+  'CSC 206 — Computer Architecture',
+  'CSC 207 — Systems Analysis and Design',
+  'CSC 208 — Database Systems',
+  'CSC 209 — Sequential Programming',
+  'CSC 210 — Computer Hardware',
+  'CSC 211 — Operating Systems',
+  'CSC 212 — Computer Laboratory',
+  'CSC 213 — Data Processing',
+  'CSC 215 — Programming Languages',
+  // 300 Level
+  'CSC 301 — Algorithms',
+  'CSC 302 — Software Engineering',
+  'CSC 303 — Computer Graphics',
+  'CSC 304 — Numerical Computation',
+  'CSC 305 — Database Management Systems',
+  'CSC 306 — Computer Networks',
+  'CSC 307 — Human-Computer Interaction',
+  'CSC 308 — Artificial Intelligence',
+  'CSC 309 — Web Technologies',
+  'CSC 310 — Compiler Construction',
+  'CSC 311 — Operating Systems II',
+  'CSC 312 — Information Systems',
+  'CSC 313 — Data Communication',
+  // 400 Level
+  'CSC 401 — Cybersecurity',
+  'CSC 402 — Machine Learning',
+  'CSC 403 — Distributed Systems',
+  'CSC 404 — Data Mining',
+  'CSC 405 — Cloud Computing',
+  'CSC 406 — Mobile Application Development',
+  'CSC 407 — Research Methodology',
+  'CSC 408 — Project I',
+  'CSC 409 — Project II',
+  'CSC 410 — Computer Ethics',
+  'CSC 411 — Computer Architecture & Organization',
+  'CSC 412 — Expert Systems',
+  'CSC 413 — Parallel Computing',
+  // Mathematics
+  'MTH 101 — Elementary Mathematics I',
+  'MTH 102 — Elementary Mathematics II',
+  'MTH 111 — Sets and Number Systems',
+  'MTH 113 — Calculus',
+  'MTH 205 — Linear Algebra',
+  'MTH 281 — Mathematical Methods',
+  'MTH 301 — Differential Equations',
+  'MTH 303 — Numerical Analysis',
+  'MTH 305 — Operations Research',
+  // Physics
+  'PHY 101 — Mechanics, Heat and Properties of Matter',
+  'PHY 102 — Electricity, Magnetism and Modern Physics',
+  'PHY 107 — Physics Practical',
+  'PHY 202 — Modern Physics',
+  'PHY 204 — Electronics',
+  // Chemistry
+  'CHM 101 — Inorganic Chemistry',
+  'CHM 102 — Organic Chemistry',
+  'CHM 103 — Physical Chemistry',
+  'CHM 191/192 — Practical Chemistry',
+  // Statistics
+  'STA 101 — Introductory Statistics',
+  'STA 201 — Probability Theory',
+  'STA 202 — Statistical Inference',
+  'STA 301 — Applied Statistics',
+  // General Studies
+  'GST 101 — Use of English',
+  'GST 102 — Communication Skills',
+  'GST 103 — Computer Fundamentals',
+  'GST 201 — Nigerian Peoples and Culture',
+  'GST 202 — Peace and Conflict Resolution',
+  'GST 203 — Philosophy and Logic',
+  'GST 204 — Entrepreneurship',
+  'GST 302 — Business Creation and Growth',
+].map((c) => ({ label: c, value: c }));
+
+// Same catalog, but the value is just the course code (e.g. "CSC 101") —
+// for contexts like group listings where a short code fits better than the
+// full "CODE — Title" string.
+export const COURSE_CODE_OPTIONS = COURSE_CATALOG.map((c) => ({
+  label: c.label,
+  value: c.value.split(' — ')[0],
+}));
+
+export const DAYS_OF_WEEK = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+export const TIME_SLOTS = [
+  '8:00 AM', '9:00 AM', '10:00 AM', '11:00 AM',
+  '12:00 PM', '1:00 PM', '2:00 PM', '3:00 PM',
+  '4:00 PM', '5:00 PM', '6:00 PM', '7:00 PM', '8:00 PM',
+].map((t) => ({ label: t, value: t }));

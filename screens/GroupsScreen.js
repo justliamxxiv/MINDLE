@@ -8,6 +8,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useUser } from '../context/UserContext';
 import { useTheme } from '../context/ThemeContext';
 import { subscribeGroups, createGroup, updateGroup, deleteGroup } from '../services/groupService';
+import { COURSE_CODE_OPTIONS } from '../utils/academicOptions';
+import SearchableSelect from '../components/SearchableSelect';
 
 const FILTERS = ['All', 'My Campus', 'My Department', 'My Course'];
 const PAGE_SIZE = 5;
@@ -24,6 +26,7 @@ export default function GroupsScreen() {
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
   const firstName = userData?.name?.split(' ')[0] || 'there';
+  const isTutor = userData?.accountType === 'tutor';
 
   // Reset paging to the first page whenever the list being shown changes
   useEffect(() => {
@@ -159,7 +162,9 @@ export default function GroupsScreen() {
               <Ionicons name="people-outline" size={48} color="#CCCCCC" />
               <Text className="text-center mt-3 font-medium" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>No groups found</Text>
               <Text className="text-xs text-center mt-1" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>
-                {activeFilter !== 'All' ? 'Try a different filter or' : 'Be the first to'} add a group below
+                {activeFilter !== 'All'
+                  ? 'Try a different filter'
+                  : isTutor ? 'Be the first to add a group below' : 'Check back soon for new groups'}
               </Text>
             </View>
           ) : (
@@ -190,27 +195,29 @@ export default function GroupsScreen() {
             </View>
           )}
 
-          {/* Add group CTA */}
-          <View className={`rounded-3xl p-5 ${isDark ? 'bg-cardDark' : 'bg-cardLight'}`}>
-            <View className="flex-row items-center mb-3">
-              <View className={`rounded-2xl p-3 mr-3 ${isDark ? 'bg-cardDark' : 'bg-white'}`}>
-                <Ionicons name="add-circle-outline" size={22} color="#FF3131" />
+          {/* Add group CTA — tutors only */}
+          {isTutor && (
+            <View className={`rounded-3xl p-5 ${isDark ? 'bg-cardDark' : 'bg-cardLight'}`}>
+              <View className="flex-row items-center mb-3">
+                <View className={`rounded-2xl p-3 mr-3 ${isDark ? 'bg-cardDark' : 'bg-white'}`}>
+                  <Ionicons name="add-circle-outline" size={22} color="#FF3131" />
+                </View>
+                <View className="flex-1">
+                  <Text className="text-lg font-bold" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>List your WhatsApp group</Text>
+                  <Text className="leading-5" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>
+                    Add your existing group so coursemates can discover and join it.
+                  </Text>
+                </View>
               </View>
-              <View className="flex-1">
-                <Text className="text-lg font-bold" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>List your WhatsApp group</Text>
-                <Text className="leading-5" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>
-                  Add your existing group so coursemates can discover and join it.
-                </Text>
-              </View>
+              <TouchableOpacity
+                className="bg-accent rounded-2xl py-3"
+                activeOpacity={0.85}
+                onPress={() => setShowAddModal(true)}
+              >
+                <Text className="text-white text-center text-base font-semibold">Add WhatsApp Group</Text>
+              </TouchableOpacity>
             </View>
-            <TouchableOpacity
-              className="bg-accent rounded-2xl py-3"
-              activeOpacity={0.85}
-              onPress={() => setShowAddModal(true)}
-            >
-              <Text className="text-white text-center text-base font-semibold">Add WhatsApp Group</Text>
-            </TouchableOpacity>
-          </View>
+          )}
         </View>
       </ScrollView>
 
@@ -286,9 +293,11 @@ function GroupCard({ group, isOwner, onEdit }) {
         ) : null}
       </View>
 
-      <TouchableOpacity className="bg-accent rounded-2xl py-3" onPress={handleJoin} activeOpacity={0.85}>
-        <Text className="text-white text-center font-semibold text-sm">Join WhatsApp Group</Text>
-      </TouchableOpacity>
+      {!isOwner && (
+        <TouchableOpacity className="bg-accent rounded-2xl py-3" onPress={handleJoin} activeOpacity={0.85}>
+          <Text className="text-white text-center font-semibold text-sm">Join WhatsApp Group</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -390,7 +399,16 @@ function AddGroupModal({ visible, onClose, userData, firebaseUser, group }) {
 
           <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
             <FormField label="Group Name *" placeholder="e.g. CSC 301 Night Prep" value={name} onChangeText={setName} />
-            <FormField label="Course Code *" placeholder="e.g. CSC 301" value={course} onChangeText={setCourse} />
+            <SearchableSelect
+              label="Course Code *"
+              value={course}
+              placeholder="Select a course"
+              modalTitle="Select Course"
+              searchPlaceholder="Search courses..."
+              options={COURSE_CODE_OPTIONS}
+              onChange={setCourse}
+              containerClassName="mb-4"
+            />
             <FormField label="WhatsApp Invite Link *" placeholder="Paste group invite link" value={whatsappLink} onChangeText={setWhatsappLink} />
             <FormField label="University" placeholder="Your university" value={university} onChangeText={setUniversity} />
             <FormField label="Department" placeholder="Your department" value={department} onChangeText={setDepartment} />

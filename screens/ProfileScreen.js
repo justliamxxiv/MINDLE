@@ -12,8 +12,11 @@ import { useTheme } from '../context/ThemeContext';
 import { updateUserWithUniquePhone } from '../services/userService';
 import { normalizePhone } from '../utils/whatsapp';
 import { UNIVERSITIES, COURSES, YEAR_OF_STUDY_OPTIONS } from '../utils/academicOptions';
+import { buildAvailabilityString, parseAvailabilityString } from '../utils/availability';
+import { formatHourlyRate } from '../utils/currency';
 import SearchableSelect from '../components/SearchableSelect';
 import PhoneInput from '../components/PhoneInput';
+import AvailabilityPicker from '../components/AvailabilityPicker';
 
 export default function ProfileScreen({ navigation }) {
   const { userData, loading, refreshUserData } = useUser();
@@ -30,7 +33,10 @@ export default function ProfileScreen({ navigation }) {
   const [editWhatsapp, setEditWhatsapp] = React.useState('');
   const [editBio, setEditBio] = React.useState('');
   const [editRate, setEditRate] = React.useState('');
-  const [editAvailability, setEditAvailability] = React.useState('');
+  const [editAvailableDays, setEditAvailableDays] = React.useState([]);
+  const [editHoursMode, setEditHoursMode] = React.useState('always');
+  const [editFromTime, setEditFromTime] = React.useState('');
+  const [editToTime, setEditToTime] = React.useState('');
 
   // Notification prefs
   const [notifSessions, setNotifSessions] = React.useState(userData?.notif_sessions ?? true);
@@ -128,7 +134,11 @@ export default function ProfileScreen({ navigation }) {
     setEditWhatsapp(userData?.whatsappNumber || '');
     setEditBio(userData?.bio || '');
     setEditRate(userData?.hourlyRate || '');
-    setEditAvailability(userData?.availability || '');
+    const parsed = parseAvailabilityString(userData?.availability);
+    setEditAvailableDays(parsed.days);
+    setEditHoursMode(parsed.hoursMode);
+    setEditFromTime(parsed.fromTime);
+    setEditToTime(parsed.toTime);
     setActiveModal('edit');
   };
 
@@ -141,6 +151,16 @@ export default function ProfileScreen({ navigation }) {
     if (normalizedPhone.length < 10 || normalizedPhone.length > 15) {
       Alert.alert('Error', 'Please enter a valid WhatsApp number');
       return;
+    }
+    if (isTutor) {
+      if (editAvailableDays.length === 0) {
+        Alert.alert('Error', 'Please select at least one available day');
+        return;
+      }
+      if (editHoursMode === 'selected' && (!editFromTime || !editToTime)) {
+        Alert.alert('Error', 'Please set your available hours');
+        return;
+      }
     }
 
     setSaving(true);
@@ -155,7 +175,12 @@ export default function ProfileScreen({ navigation }) {
       if (isTutor) {
         updates.bio = editBio.trim();
         updates.hourlyRate = editRate.trim();
-        updates.availability = editAvailability.trim();
+        updates.availability = buildAvailabilityString({
+          days: editAvailableDays,
+          hoursMode: editHoursMode,
+          fromTime: editFromTime,
+          toTime: editToTime,
+        });
       }
       // Saves profile and claims the WhatsApp number in the unique-phone registry
       await updateUserWithUniquePhone(user.uid, editWhatsapp, userData?.whatsappNumber, updates);
@@ -247,7 +272,7 @@ export default function ProfileScreen({ navigation }) {
                   </View>
                   <View
                     className="absolute bottom-0 right-0 w-5 h-5 rounded-full bg-accent items-center justify-center"
-                    style={{ borderWidth: 1.5, borderColor: '#090F43' }}
+                    style={{ borderWidth: 1.5, borderColor: isDark ? '#000000' : '#090F43' }}
                   >
                     <Ionicons name="camera" size={10} color="#FFFFFF" />
                   </View>
@@ -313,7 +338,7 @@ export default function ProfileScreen({ navigation }) {
                 <View className={`flex-1 rounded-3xl border p-5 ${isDark ? 'bg-cardDark border-gray-800' : 'bg-white border-gray-100'}`}>
                   <Text className="text-sm mb-1" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>Hourly Rate</Text>
                   <Text className="text-lg font-bold" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>
-                    {userData?.hourlyRate || 'Not set'}
+                    {formatHourlyRate(userData?.hourlyRate, 'Not set')}
                   </Text>
                 </View>
                 <View className={`flex-1 rounded-3xl border p-5 ${isDark ? 'bg-cardDark border-gray-800' : 'bg-white border-gray-100'}`}>
@@ -454,7 +479,18 @@ export default function ProfileScreen({ navigation }) {
           <>
             <EditField label="Bio" value={editBio} onChangeText={setEditBio} placeholder="Tell students about yourself..." multiline disabled={saving} />
             <EditField label="Hourly rate" value={editRate} onChangeText={setEditRate} placeholder="e.g. ₦2000/hour or Free" disabled={saving} />
-            <EditField label="Availability" value={editAvailability} onChangeText={setEditAvailability} placeholder="e.g. Weekdays 4pm–8pm" multiline disabled={saving} />
+            <AvailabilityPicker
+              days={editAvailableDays}
+              onDaysChange={setEditAvailableDays}
+              hoursMode={editHoursMode}
+              onHoursModeChange={setEditHoursMode}
+              fromTime={editFromTime}
+              onFromTimeChange={setEditFromTime}
+              toTime={editToTime}
+              onToTimeChange={setEditToTime}
+              isDark={isDark}
+              disabled={saving}
+            />
           </>
         )}
       </ProfileActionModal>

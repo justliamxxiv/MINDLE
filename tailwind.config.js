@@ -16,8 +16,8 @@ module.exports = {
         cardLight: '#F5F5F5',    // Light gray
         textPrimary: '#000000',  // Black
         textSecondary: '#666666', // Gray
-        backgroundDark: '#090F43',
-        cardDark: '#0F1554',
+        backgroundDark: '#000000',
+        cardDark: '#1A1A1A',
       },
     },
   },

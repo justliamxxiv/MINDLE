@@ -4,19 +4,24 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useUser } from '../context/UserContext';
 import { useTheme } from '../context/ThemeContext';
-import { subscribeTutors } from '../services/sessionService';
+import { subscribeTutors, subscribeStudentSessions } from '../services/sessionService';
+import { computeTutorProgress } from '../utils/tutorProgress';
+import { openWhatsApp } from '../utils/whatsapp';
+import { formatHourlyRate } from '../utils/currency';
 
 const SUBJECT_FILTERS = ['All', 'Top Rated', 'Free', 'STEM', 'Exam Prep'];
 
 const ACCENT_COLORS = ['#FF3131', '#4CAF50', '#090F43', '#FFB800', '#2196F3', '#9C27B0'];
+const PROGRESS_COLORS = ['#FF3131', '#FFB800', '#4CAF50', '#2196F3', '#9C27B0', '#090F43'];
 
 export default function TutorsScreen({ navigation }) {
-  const { userData } = useUser();
+  const { userData, firebaseUser } = useUser();
   const { isDark } = useTheme();
   const [activeFilter, setActiveFilter] = useState('All');
   const [tutors, setTutors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [sessions, setSessions] = useState([]);
 
   const firstName = userData?.name?.split(' ')[0] || 'Student';
 
@@ -34,6 +39,26 @@ export default function TutorsScreen({ navigation }) {
     );
     return unsub;
   }, []);
+
+  useEffect(() => {
+    if (!firebaseUser?.uid) return;
+    const unsub = subscribeStudentSessions(
+      firebaseUser.uid,
+      (data) => setSessions(data),
+      (error) => console.error('Sessions listener error:', error),
+    );
+    return unsub;
+  }, [firebaseUser?.uid]);
+
+  const tutorProgress = computeTutorProgress(sessions).map((t, i) => ({
+    id: t.tutorId,
+    course: t.course,
+    tutor: t.tutorName,
+    whatsapp: t.tutorWhatsapp,
+    sessions: t.count,
+    hasActive: t.hasActive,
+    color: PROGRESS_COLORS[i % PROGRESS_COLORS.length],
+  }));
 
   const STEM_KEYWORDS = ['science', 'technology', 'engineering', 'mathematics', 'maths', 'math', 'physics', 'chemistry', 'biology', 'computer', 'statistics', 'calculus', 'software', 'electrical', 'mechanical', 'civil', 'biochemistry'];
   const EXAM_KEYWORDS = ['exam', 'waec', 'jamb', 'neco', 'utme', 'revision', 'test prep', 'past questions', 'gce'];
@@ -141,6 +166,61 @@ export default function TutorsScreen({ navigation }) {
             </View>
           </View>
 
+          {/* Your Progress */}
+          {tutorProgress.length > 0 && (
+            <View className="mb-6">
+              <Text className="text-2xl font-bold mb-4" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>Your Progress</Text>
+              <View style={{ gap: 12 }}>
+                {tutorProgress.map((item) => (
+                  <View
+                    key={item.id}
+                    className={`rounded-2xl p-4 border ${isDark ? 'bg-cardDark border-gray-800' : 'bg-white border-gray-100'}`}
+                  >
+                    <View className="flex-row justify-between items-start mb-3">
+                      <View className="flex-1">
+                        <Text className="text-lg font-bold mb-1" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>
+                          {item.course}
+                        </Text>
+                        <Text className="text-sm" style={{ color: isDark ? '#9CA3AF' : '#666666' }}>
+                          with {item.tutor}
+                        </Text>
+                      </View>
+                      <View className={`px-3 py-1 rounded-full ${isDark ? 'bg-cardDark' : 'bg-cardLight'}`}>
+                        <Text className="text-xs font-semibold" style={{ color: isDark ? '#FFFFFF' : '#000000' }}>
+                          {item.sessions} sessions
+                        </Text>
+                      </View>
+                    </View>
+
+                    <View className="flex-row items-center mb-3">
+                      <View className={`h-2 rounded-full flex-1 mr-3 ${isDark ? 'bg-gray-800' : 'bg-gray-100'}`}>
+                        <View className="h-2 rounded-full w-full" style={{ backgroundColor: item.color, opacity: 0.3 }} />
+                      </View>
+                      <Text
+                        className="text-xs font-semibold"
+                        style={{ color: item.hasActive ? item.color : (isDark ? '#9CA3AF' : '#666666') }}
+                      >
+                        {item.hasActive ? 'In progress' : 'Completed'}
+                      </Text>
+                    </View>
+
+                    {item.whatsapp ? (
+                      <TouchableOpacity
+                        className="flex-row items-center justify-center py-2.5 rounded-xl"
+                        style={{ backgroundColor: '#25D36618' }}
+                        onPress={() => openWhatsApp(item.whatsapp)}
+                        activeOpacity={0.85}
+                      >
+                        <Ionicons name="logo-whatsapp" size={16} color="#128C7E" />
+                        <Text className="text-sm font-semibold ml-2" style={{ color: '#128C7E' }}>Message on WhatsApp</Text>
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
+
           {/* Tutor list */}
           <View className="flex-row justify-between items-center mb-4">
             <Text className="text-2xl font-bold" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>
@@ -190,7 +270,7 @@ export default function TutorsScreen({ navigation }) {
                       </View>
                       <View className={`px-3 py-2 rounded-full ${isDark ? 'bg-cardDark' : 'bg-cardLight'}`}>
                         <Text className="text-xs font-semibold" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>
-                          {tutor.hourlyRate || 'Free'}
+                          {formatHourlyRate(tutor.hourlyRate)}
                         </Text>
                       </View>
                     </View>
