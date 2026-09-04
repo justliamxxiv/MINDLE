@@ -6,6 +6,7 @@ import { auth } from '../config/firebaseConfig';
 import { friendlyAuthError } from '../utils/authErrors';
 import { useTheme } from '../context/ThemeContext';
 import PasswordInput from '../components/PasswordInput';
+import DismissKeyboardView from '../components/DismissKeyboardView';
 
 export default function LoginScreen({ navigation }) {
   const { isDark } = useTheme();
@@ -31,6 +32,7 @@ export default function LoginScreen({ navigation }) {
   };
 
   return (
+    <DismissKeyboardView>
     <View className={`flex-1 px-8 justify-center ${isDark ? 'bg-backgroundDark' : 'bg-background'}`}>
       <StatusBar style={isDark ? 'light' : 'dark'} />
 
@@ -129,5 +131,6 @@ export default function LoginScreen({ navigation }) {
         </Text>
       </TouchableOpacity>
     </View>
+    </DismissKeyboardView>
   );
 }

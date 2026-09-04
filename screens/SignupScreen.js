@@ -7,6 +7,7 @@ import { doc, setDoc } from 'firebase/firestore';
 import { friendlyAuthError } from '../utils/authErrors';
 import { useTheme } from '../context/ThemeContext';
 import PasswordInput from '../components/PasswordInput';
+import DismissKeyboardView from '../components/DismissKeyboardView';
 
 export default function SignupScreen({ navigation }) {
   const { isDark } = useTheme();
@@ -70,7 +71,8 @@ export default function SignupScreen({ navigation }) {
   };
 
   return (
-    <ScrollView className={`flex-1 ${isDark ? 'bg-backgroundDark' : 'bg-background'}`}>
+    <DismissKeyboardView>
+    <ScrollView className={`flex-1 ${isDark ? 'bg-backgroundDark' : 'bg-background'}`} keyboardShouldPersistTaps="handled">
       <View className="px-8 pt-16 pb-8">
         <StatusBar style={isDark ? 'light' : 'dark'} />
 
@@ -198,5 +200,6 @@ export default function SignupScreen({ navigation }) {
         </TouchableOpacity>
       </View>
     </ScrollView>
+    </DismissKeyboardView>
   );
 }

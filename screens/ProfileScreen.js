@@ -17,6 +17,7 @@ import { formatHourlyRate } from '../utils/currency';
 import SearchableSelect from '../components/SearchableSelect';
 import PhoneInput from '../components/PhoneInput';
 import AvailabilityPicker from '../components/AvailabilityPicker';
+import DismissKeyboardView from '../components/DismissKeyboardView';
 
 export default function ProfileScreen({ navigation }) {
   const { userData, loading, refreshUserData } = useUser();
@@ -598,6 +599,7 @@ function ProfileActionModal({ visible, title, subtitle, icon, onClose, children,
   const { isDark } = useTheme();
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <DismissKeyboardView>
       <View className="flex-1 bg-black/40 justify-end">
         <View className={`rounded-t-3xl px-6 pt-5 pb-8 ${isDark ? 'bg-backgroundDark' : 'bg-background'}`} style={{ maxHeight: '85%' }}>
           <View className="flex-row items-start justify-between mb-5">
@@ -623,6 +625,7 @@ function ProfileActionModal({ visible, title, subtitle, icon, onClose, children,
           </ScrollView>
         </View>
       </View>
+      </DismissKeyboardView>
     </Modal>
   );
 }

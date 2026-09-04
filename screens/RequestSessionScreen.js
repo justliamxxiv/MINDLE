@@ -10,6 +10,7 @@ import { useUser } from '../context/UserContext';
 import { useTheme } from '../context/ThemeContext';
 import { requestSession } from '../services/sessionService';
 import SearchableSelect from '../components/SearchableSelect';
+import DismissKeyboardView from '../components/DismissKeyboardView';
 import { TIME_SLOTS, COURSE_CATALOG } from '../utils/academicOptions';
 
 const SESSION_TYPES = [
@@ -90,6 +91,7 @@ export default function RequestSessionScreen({ navigation, route }) {
         <Text className="text-xl font-bold flex-1" style={{ color: isDark ? '#FFFFFF' : '#090F43' }}>Request a Session</Text>
       </View>
 
+      <DismissKeyboardView>
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <View className="px-6 pt-6 pb-10" style={{ gap: 20 }}>
 
@@ -259,6 +261,7 @@ export default function RequestSessionScreen({ navigation, route }) {
 
         </View>
       </ScrollView>
+      </DismissKeyboardView>
     </SafeAreaView>
   );
 }

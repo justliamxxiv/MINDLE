@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Modal, FlatList } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
+import DismissKeyboardView from './DismissKeyboardView';
 
 export default function SearchableSelect({
   label,
@@ -51,6 +52,7 @@ export default function SearchableSelect({
         animationType="slide"
         onRequestClose={() => setVisible(false)}
       >
+        <DismissKeyboardView>
         <View className="flex-1 bg-black/40 justify-end">
           <View className={`rounded-t-3xl px-6 pt-5 pb-8 ${isDark ? 'bg-backgroundDark' : 'bg-background'}`} style={{ maxHeight: '80%' }}>
             <View className="flex-row items-center justify-between mb-4">
@@ -97,6 +99,7 @@ export default function SearchableSelect({
             />
           </View>
         </View>
+        </DismissKeyboardView>
       </Modal>
     </View>
   );

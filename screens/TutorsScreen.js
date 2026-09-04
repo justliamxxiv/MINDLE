@@ -8,6 +8,7 @@ import { subscribeTutors, subscribeStudentSessions } from '../services/sessionSe
 import { computeTutorProgress } from '../utils/tutorProgress';
 import { openWhatsApp } from '../utils/whatsapp';
 import { formatHourlyRate } from '../utils/currency';
+import DismissKeyboardView from '../components/DismissKeyboardView';
 
 const SUBJECT_FILTERS = ['All', 'Top Rated', 'Free', 'STEM', 'Exam Prep'];
 
@@ -86,7 +87,8 @@ export default function TutorsScreen({ navigation }) {
   return (
     <SafeAreaView className={`flex-1 ${isDark ? 'bg-backgroundDark' : 'bg-background'}`}>
       <StatusBar style={isDark ? 'light' : 'dark'} />
-      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+      <DismissKeyboardView>
+      <ScrollView className="flex-1" showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <View className="px-6 pt-4 pb-8">
 
           {/* Header */}
@@ -305,6 +307,7 @@ export default function TutorsScreen({ navigation }) {
           )}
         </View>
       </ScrollView>
+      </DismissKeyboardView>
     </SafeAreaView>
   );
 }

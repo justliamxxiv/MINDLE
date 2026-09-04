@@ -11,6 +11,7 @@ import { buildAvailabilityString } from '../utils/availability';
 import SearchableSelect from '../components/SearchableSelect';
 import PhoneInput from '../components/PhoneInput';
 import AvailabilityPicker from '../components/AvailabilityPicker';
+import DismissKeyboardView from '../components/DismissKeyboardView';
 
 export default function ProfileSetupScreen({ navigation, route }) {
   const { refreshUserData, userData } = useUser();
@@ -131,7 +132,8 @@ export default function ProfileSetupScreen({ navigation, route }) {
   };
 
   return (
-    <ScrollView className={`flex-1 ${isDark ? 'bg-backgroundDark' : 'bg-background'}`}>
+    <DismissKeyboardView>
+    <ScrollView className={`flex-1 ${isDark ? 'bg-backgroundDark' : 'bg-background'}`} keyboardShouldPersistTaps="handled">
       <View className="px-8 pt-16 pb-8">
         <StatusBar style={isDark ? 'light' : 'dark'} />
 
@@ -314,5 +316,6 @@ export default function ProfileSetupScreen({ navigation, route }) {
         </TouchableOpacity>
       </View>
     </ScrollView>
+    </DismissKeyboardView>
   );
 }

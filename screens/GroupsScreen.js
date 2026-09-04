@@ -10,6 +10,7 @@ import { useTheme } from '../context/ThemeContext';
 import { subscribeGroups, createGroup, updateGroup, deleteGroup } from '../services/groupService';
 import { COURSE_CODE_OPTIONS } from '../utils/academicOptions';
 import SearchableSelect from '../components/SearchableSelect';
+import DismissKeyboardView from '../components/DismissKeyboardView';
 
 const FILTERS = ['All', 'My Campus', 'My Department', 'My Course'];
 const PAGE_SIZE = 5;
@@ -63,7 +64,8 @@ export default function GroupsScreen() {
   return (
     <SafeAreaView className={`flex-1 ${isDark ? 'bg-backgroundDark' : 'bg-background'}`}>
       <StatusBar style={isDark ? 'light' : 'dark'} />
-      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+      <DismissKeyboardView>
+      <ScrollView className="flex-1" showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <View className="px-6 pt-4 pb-8">
 
           {/* Header */}
@@ -220,6 +222,7 @@ export default function GroupsScreen() {
           )}
         </View>
       </ScrollView>
+      </DismissKeyboardView>
 
       <AddGroupModal
         visible={showAddModal || !!editingGroup}
@@ -379,6 +382,7 @@ function AddGroupModal({ visible, onClose, userData, firebaseUser, group }) {
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <DismissKeyboardView>
       <View className="flex-1 bg-black/40 justify-end">
         <View className={`rounded-t-3xl px-6 pt-5 pb-8 ${isDark ? 'bg-backgroundDark' : 'bg-background'}`} style={{ maxHeight: '90%' }}>
           <View className="flex-row items-center justify-between mb-5">
@@ -442,6 +446,7 @@ function AddGroupModal({ visible, onClose, userData, firebaseUser, group }) {
           </ScrollView>
         </View>
       </View>
+      </DismissKeyboardView>
     </Modal>
   );
 }
